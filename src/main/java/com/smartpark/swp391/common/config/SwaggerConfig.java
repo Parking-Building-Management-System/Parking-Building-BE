@@ -7,11 +7,18 @@ import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class SwaggerConfig {
+
+  @Value("${app.swagger.server.url}")
+  private String serverUrl;
+
+  @Value("${app.swagger.server.description}")
+  private String serverDescription;
 
   @Bean
   public OpenAPI customOpenAPI() {
@@ -23,7 +30,11 @@ public class SwaggerConfig {
                 .title("SmartPark API")
                 .description("API documentation for SmartPark System")
                 .version("1.0.0"))
-        .servers(List.of(new Server().url("http://localhost:8080").description("Local")))
+        // Bơm Server list từ ENV vào đây
+        .servers(
+            List.of(
+                new Server().url(serverUrl).description(serverDescription),
+                new Server().url("http://localhost:8080").description("Local Development")))
         .addSecurityItem(new SecurityRequirement().addList(securitySchemeName))
         .components(
             new Components()
