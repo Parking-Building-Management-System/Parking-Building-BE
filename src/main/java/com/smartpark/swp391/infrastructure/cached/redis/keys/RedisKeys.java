@@ -12,9 +12,9 @@ public final class RedisKeys {
 
   private static final String PREFIX = "smartpark";
 
-  private static final String SESS_AUTHZ = PREFIX + ":tenant:%s:sess:authz:";
-  private static final String SESS_REVOKED = PREFIX + ":tenant:%s:sess:revoked:";
-  private static final String SESS_ACTIVE = PREFIX + ":tenant:%s:sess:active:";
+  private static final String SESS_AUTHZ = PREFIX + ":sess:authz:";
+  private static final String SESS_REVOKED = PREFIX + ":sess:revoked:";
+  private static final String SESS_ACTIVE = PREFIX + ":sess:active:";
   private static final String TENANT_DETAIL = PREFIX + ":tenant:detail:%s";
 
   private static final String RATE_LIMIT_USER = PREFIX + ":ratelimit:user:";
@@ -34,22 +34,19 @@ public final class RedisKeys {
     }
   }
 
-  public static String sessionRevoked(UUID tenantId, UUID sessionId) {
-    requireNonBlank(tenantId, "tenantId");
+  public static String sessionRevoked(UUID sessionId) {
     requireNonBlank(sessionId, "sessionId");
-    return String.format(SESS_REVOKED, tenantId) + sessionId;
+    return SESS_REVOKED + sessionId;
   }
 
-  public static String sessionAuthz(UUID tenantId, UUID sessionId) {
-    requireNonBlank(tenantId, "tenantId");
+  public static String sessionAuthz(UUID sessionId) {
     requireNonBlank(sessionId, "sessionId");
-    return String.format(SESS_AUTHZ, tenantId) + sessionId;
+    return SESS_AUTHZ + sessionId;
   }
 
-  public static String sessionActive(UUID tenantId, UUID sessionId) {
-    requireNonBlank(tenantId, "tenantId");
+  public static String sessionActive(UUID sessionId) {
     requireNonBlank(sessionId, "sessionId");
-    return String.format(SESS_ACTIVE, tenantId) + sessionId;
+    return SESS_ACTIVE + sessionId;
   }
 
   public static String rateLimitUser(UUID userId) {
