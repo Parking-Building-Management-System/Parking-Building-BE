@@ -15,6 +15,7 @@ public final class RedisKeys {
   private static final String SESS_AUTHZ = PREFIX + ":tenant:%s:sess:authz:";
   private static final String SESS_REVOKED = PREFIX + ":tenant:%s:sess:revoked:";
   private static final String SESS_ACTIVE = PREFIX + ":tenant:%s:sess:active:";
+  private static final String TENANT_DETAIL = PREFIX + ":tenant:detail:%s";
 
   private static final String RATE_LIMIT_USER = PREFIX + ":ratelimit:user:";
   private static final String RATE_LIMIT_LOGIN = PREFIX + ":ratelimit:login:";
@@ -59,6 +60,11 @@ public final class RedisKeys {
   public static String rateLimitLogin(String phoneNumber) {
     requireNonBlank(phoneNumber, "phoneNumber");
     return RATE_LIMIT_LOGIN + phoneNumber;
+  }
+
+  public static String tenantDetail(UUID tenantId) {
+    requireNonBlank(tenantId, "tenantId");
+    return String.format(TENANT_DETAIL, tenantId);
   }
 
   /**

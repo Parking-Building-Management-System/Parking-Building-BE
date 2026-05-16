@@ -30,7 +30,6 @@ public class SwaggerConfig {
                 .title("SmartPark API")
                 .description("API documentation for SmartPark System")
                 .version("1.0.0"))
-        // Bơm Server list từ ENV vào đây
         .servers(
             List.of(
                 new Server().url(serverUrl).description(serverDescription),
