@@ -1,3 +1,54 @@
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+  swagger:
+    server:
+      url: ${SWAGGER_SERVER_URL:http://localhost:8080}
+      description: ${SWAGGER_SERVER_DESC:Local Server}
+
 spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
   application:
-    name: swp391
+    name: smartpark
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    out-of-order: true
+
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST}
+      port: ${SPRING_DATA_REDIS_PORT}
+      timeout: ${SPRING_DATA_REDIS_TIMEOUT}
+
+jwt:
+  signer-key-base64: ${JWT_SIGNER_KEY_BASE64}
+  valid-duration: ${JWT_VALID_DURATION}
+  refreshable-duration: ${JWT_REFRESHABLE_DURATION}
+
+server:
+  port: ${SERVER_PORT:8080}
+
+logging:
+  level:
+    root: INFO
+    com.smartpark.swp391: DEBUG

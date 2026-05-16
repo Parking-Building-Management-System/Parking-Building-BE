@@ -8,6 +8,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 @SpringBootTest
 class Swp391ApplicationTests {
 
-    @Test
-    void contextLoads() {}
+  @Test
+  void contextLoads() {}
 }
