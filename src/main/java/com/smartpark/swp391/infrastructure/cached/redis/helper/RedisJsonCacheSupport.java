@@ -22,7 +22,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 public abstract class RedisJsonCacheSupport {
 
   StringRedisTemplate redis;
-  ObjectMapper objectMapper;
+  ObjectMapper redisObjectMapper;
 
   // helper to read a value if we input a key
   protected Optional<String> readRawValue(String key) {
@@ -83,7 +83,7 @@ public abstract class RedisJsonCacheSupport {
   // use when: cache value is an object
   protected <T> Optional<T> deserialize(String json, Class<T> clazz) {
     try {
-      return Optional.of(objectMapper.readValue(json, clazz));
+      return Optional.of(redisObjectMapper.readValue(json, clazz));
     } catch (JsonProcessingException e) {
       log.warn("Fail to deserialize json to {}", clazz.getSimpleName(), e);
       return Optional.empty();
@@ -94,7 +94,7 @@ public abstract class RedisJsonCacheSupport {
   // use when: cache value is a List<>, Map<>
   protected <T> Optional<T> deserialize(String json, TypeReference<T> type) {
     try {
-      return Optional.of(objectMapper.readValue(json, type));
+      return Optional.of(redisObjectMapper.readValue(json, type));
     } catch (JsonProcessingException e) {
       log.warn("Fail to deserialize json (TypeReference)", e);
       return Optional.empty();
@@ -104,7 +104,7 @@ public abstract class RedisJsonCacheSupport {
   // helper to parse a object to String for redis saving
   protected Optional<String> serialize(Object value) {
     try {
-      return Optional.of(objectMapper.writeValueAsString(value));
+      return Optional.of(redisObjectMapper.writeValueAsString(value));
     } catch (JsonProcessingException e) {
       log.error("Fail to serialize: {}", value, e);
       return Optional.empty();

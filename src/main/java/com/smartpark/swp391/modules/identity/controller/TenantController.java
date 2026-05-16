@@ -2,7 +2,6 @@ package com.smartpark.swp391.modules.identity.controller;
 
 import com.smartpark.swp391.common.exception.ErrorCode;
 import com.smartpark.swp391.common.response.ApiResponse;
-import com.smartpark.swp391.common.security.annotation.RateLimit;
 import com.smartpark.swp391.modules.identity.dto.tenant.request.TenantCreationRequest;
 import com.smartpark.swp391.modules.identity.dto.tenant.response.TenantResponse;
 import com.smartpark.swp391.modules.identity.service.TenantService;
@@ -18,7 +17,14 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/tenants")
@@ -48,7 +54,7 @@ public class TenantController {
             content = @Content(schema = @Schema(implementation = ApiResponse.class)))
       })
   @PostMapping
-  @RateLimit(limit = 5, duration = 30, type = RateLimit.Type.USER_ID)
+  // @RateLimit(limit = 5, duration = 30, type = RateLimit.Type.USER_ID)
   public ResponseEntity<ApiResponse<TenantResponse>> createTenant(
       @Valid @RequestBody TenantCreationRequest request) {
     return ResponseEntity.ok(
@@ -62,7 +68,7 @@ public class TenantController {
 
   @Operation(summary = "Lấy thông tin chi tiết của Tenant")
   @GetMapping("/{id}")
-  @RateLimit(limit = 20, duration = 60, type = RateLimit.Type.USER_ID)
+  // @RateLimit(limit = 20, duration = 60, type = RateLimit.Type.USER_ID)
   public ResponseEntity<ApiResponse<TenantResponse>> getTenant(@PathVariable UUID id) {
     return ResponseEntity.ok(
         ApiResponse.<TenantResponse>builder()
@@ -74,12 +80,12 @@ public class TenantController {
   }
 
   @Operation(
-      summary = "Khóa mõm Tenant (Suspend)",
+      summary = "Disable Tenant (Suspend)",
       description =
           "Tạm dừng hoạt động của Tenant. Hệ thống sẽ tự động kick toàn bộ User thuộc"
               + " Tenant này khỏi Redis.")
   @PatchMapping("/{id}/suspend")
-  @RateLimit(limit = 5, duration = 30, type = RateLimit.Type.USER_ID)
+  // @RateLimit(limit = 5, duration = 30, type = RateLimit.Type.USER_ID)
   public ResponseEntity<ApiResponse<Void>> suspendTenant(@PathVariable UUID id) {
     tenantService.suspendTenant(id);
     return ResponseEntity.ok(
@@ -92,7 +98,7 @@ public class TenantController {
 
   @Operation(summary = "Xóa mềm Tenant")
   @DeleteMapping("/{id}")
-  @RateLimit(limit = 5, duration = 30, type = RateLimit.Type.USER_ID)
+  // @RateLimit(limit = 5, duration = 30, type = RateLimit.Type.USER_ID)
   public ResponseEntity<ApiResponse<Void>> deleteTenant(@PathVariable UUID id) {
     tenantService.deleteTenant(id);
     return ResponseEntity.ok(

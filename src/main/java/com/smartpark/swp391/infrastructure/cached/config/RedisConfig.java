@@ -2,9 +2,11 @@ package com.smartpark.swp391.infrastructure.cached.config;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
@@ -22,12 +24,16 @@ public class RedisConfig {
   }
 
   @Bean
+  @Primary
   public ObjectMapper redisObjectMapper() {
     ObjectMapper mapper = new ObjectMapper();
-    // Xử lý LocalDateTime của BaseEntity
+
     mapper.registerModule(new JavaTimeModule());
-    // Thêm cột mới vào Entity không bị văng lỗi khi đọc cache cũ
+
     mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+    mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
     return mapper;
   }
 }

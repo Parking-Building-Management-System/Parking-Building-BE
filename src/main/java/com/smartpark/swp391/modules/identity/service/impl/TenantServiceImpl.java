@@ -35,7 +35,7 @@ public class TenantServiceImpl implements TenantService {
 
     if (tenantRepository.existsBySlug(request.slug())) {
       log.warn("Tạo thất bại - Slug đã tồn tại trên hệ thống: {}", request.slug());
-      throw new ApiException(ErrorCode.DUPLICATE_RESOURCE);
+      throw new ApiException(ErrorCode.DUPLICATE_RESOURCE, "Khách hàng đã tồn tại");
     }
 
     Tenant tenant =
