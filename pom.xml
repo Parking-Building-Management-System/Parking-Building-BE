@@ -127,12 +127,6 @@
             <version>7.4.0</version>
         </dependency>
 
-        <dependency>
-            <groupId>org.jobrunr</groupId>
-            <artifactId>jobrunr-spring-boot-3-starter</artifactId>
-            <version>7.4.0</version>
-        </dependency>
-       
         <!-- Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
