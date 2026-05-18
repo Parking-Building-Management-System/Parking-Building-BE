@@ -39,7 +39,12 @@ public class SecurityConfig {
   };
 
   private static final String[] PUBLIC_AUTH_ENDPOINTS = {
-    "/api/v1/auth/login", "/api/v1/internal/healthz", "/api/v1/auth/refresh"
+    "/auth/login",
+    "/auth/refresh",
+    "/api/v1/auth/login",
+    "/api/v1/auth/refresh",
+    "/internal/healthz",
+    "/api/v1/internal/healthz"
   };
 
   @Bean
@@ -67,14 +72,15 @@ public class SecurityConfig {
   @Bean
   @Order(2)
   public SecurityFilterChain apiChain(HttpSecurity http) throws Exception {
-    http.securityMatcher(
-        "/api/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/ws/**");
+    http.securityMatcher("/**");
 
     http.cors(Customizer.withDefaults()).csrf(AbstractHttpConfigurer::disable);
 
     http.authorizeHttpRequests(
         auth ->
             auth.requestMatchers(SWAGGER_ENDPOINTS)
+                .permitAll()
+                .requestMatchers(PUBLIC_AUTH_ENDPOINTS)
                 .permitAll()
                 .requestMatchers("/ws/**")
                 .permitAll()

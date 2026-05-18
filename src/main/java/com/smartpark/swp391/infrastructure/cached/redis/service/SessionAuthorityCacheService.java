@@ -25,21 +25,27 @@ public class SessionAuthorityCacheService {
   ObjectMapper objectMapper;
 
   public Optional<SessionAuthzCache> get(UUID sessionId) {
-    if (sessionId == null) return Optional.empty();
+    if (sessionId == null) {
+      return Optional.empty();
+    }
 
     String key = RedisKeys.sessionAuthz(sessionId);
     return readRawValue(key).flatMap(this::deserializeSessionAuthz);
   }
 
   public boolean put(UUID sessionId, SessionAuthzCache value, Duration ttl) {
-    if (sessionId == null || value == null || !isValidTtl(ttl)) return false;
+    if (sessionId == null || value == null || !isValidTtl(ttl)) {
+      return false;
+    }
 
     String key = RedisKeys.sessionAuthz(sessionId);
     return serialize(value).map(json -> writeValue(key, json, ttl)).orElse(false);
   }
 
   public boolean markRevoked(UUID sessionId, Duration ttl) {
-    if (sessionId == null || !isValidTtl(ttl)) return false;
+    if (sessionId == null || !isValidTtl(ttl)) {
+      return false;
+    }
 
     String key = RedisKeys.sessionRevoked(sessionId);
     try {
@@ -52,7 +58,9 @@ public class SessionAuthorityCacheService {
   }
 
   public boolean isRevoked(UUID sessionId) {
-    if (sessionId == null) return false;
+    if (sessionId == null) {
+      return false;
+    }
 
     String key = RedisKeys.sessionRevoked(sessionId);
     try {
@@ -64,7 +72,9 @@ public class SessionAuthorityCacheService {
   }
 
   public boolean markActive(UUID sessionId, Duration ttl) {
-    if (sessionId == null || !isValidTtl(ttl)) return false;
+    if (sessionId == null || !isValidTtl(ttl)) {
+      return false;
+    }
 
     String key = RedisKeys.sessionActive(sessionId);
     try {
@@ -77,7 +87,9 @@ public class SessionAuthorityCacheService {
   }
 
   public boolean isActive(UUID sessionId) {
-    if (sessionId == null) return false;
+    if (sessionId == null) {
+      return false;
+    }
 
     String key = RedisKeys.sessionActive(sessionId);
     try {
@@ -89,7 +101,9 @@ public class SessionAuthorityCacheService {
   }
 
   public boolean clearActive(UUID sessionId) {
-    if (sessionId == null) return false;
+    if (sessionId == null) {
+      return false;
+    }
     String key = RedisKeys.sessionActive(sessionId);
     try {
       redis.delete(key);
@@ -101,7 +115,9 @@ public class SessionAuthorityCacheService {
   }
 
   public boolean clearAuthz(UUID sessionId) {
-    if (sessionId == null) return false;
+    if (sessionId == null) {
+      return false;
+    }
     String key = RedisKeys.sessionAuthz(sessionId);
     try {
       redis.delete(key);
@@ -119,7 +135,9 @@ public class SessionAuthorityCacheService {
   private Optional<String> readRawValue(String key) {
     try {
       String json = redis.opsForValue().get(key);
-      if (json == null || json.isBlank()) return Optional.empty();
+      if (json == null || json.isBlank()) {
+        return Optional.empty();
+      }
       return Optional.of(json);
     } catch (DataAccessException e) {
       log.warn("Redis sập hoặc lỗi khi đọc key={}", key, e);

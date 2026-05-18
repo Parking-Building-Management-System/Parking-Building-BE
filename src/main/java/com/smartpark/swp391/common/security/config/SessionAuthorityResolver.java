@@ -42,7 +42,9 @@ public class SessionAuthorityResolver {
   public SessionAuthzCache resolve(UUID sessionId, UUID userId, Instant jwtExp) {
     // 1. Dynamic TTL Calculation: Align Redis TTL with JWT Expiration
     Duration ttl = Duration.between(Instant.now(), jwtExp);
-    if (ttl.isNegative() || ttl.isZero()) ttl = Duration.ofSeconds(1);
+    if (ttl.isNegative() || ttl.isZero()) {
+      ttl = Duration.ofSeconds(1);
+    }
 
     // 2. The Guard: Hard check if session is forcefully revoked or inactive
     sessionGuardService.ensureActive(sessionId, ttl);

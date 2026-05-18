@@ -59,12 +59,34 @@ public class SessionServiceImpl implements SessionService {
   @Override
   @Transactional
   public void revoke(UUID sessionId, Duration accessTtl) {
-    if (sessionId == null) throw new ApiException(ErrorCode.UNAUTHENTICATED);
+    if (sessionId == null) {
+      throw new ApiException(ErrorCode.UNAUTHENTICATED);
+    }
+    revokeSession(sessionId, null, accessTtl);
+  }
+
+  @Override
+  @Transactional
+  public void revoke(UUID sessionId, UUID userId, Duration accessTtl) {
+    if (sessionId == null || userId == null) {
+      throw new ApiException(ErrorCode.UNAUTHENTICATED);
+    }
+    revokeSession(sessionId, userId, accessTtl);
+  }
+
+  private void revokeSession(UUID sessionId, UUID userId, Duration accessTtl) {
     if (accessTtl == null || accessTtl.isZero() || accessTtl.isNegative()) {
       accessTtl = Duration.ofSeconds(1);
     }
 
-    sessionRepository.revokeIfNotRevoked(sessionId, LocalDateTime.now());
+    LocalDateTime now = LocalDateTime.now();
+    int updated =
+        userId == null
+            ? sessionRepository.revokeIfNotRevoked(sessionId, now)
+            : sessionRepository.revokeIfNotRevokedByUser(sessionId, userId, now);
+    if (updated != 1) {
+      throw new ApiException(ErrorCode.UNAUTHENTICATED);
+    }
 
     try {
       sessionAuthorityCacheService.markRevoked(sessionId, accessTtl);

@@ -13,5 +13,7 @@ public interface SessionService {
 
   void revoke(UUID sessionId, Duration accessTtl);
 
+  void revoke(UUID sessionId, UUID userId, Duration accessTtl);
+
   void revokeAll(UUID userId);
 }

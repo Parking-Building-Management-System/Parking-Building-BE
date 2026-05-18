@@ -42,6 +42,18 @@ public interface SessionRepository extends JpaRepository<Session, UUID> {
             """)
   int revokeIfNotRevoked(@Param("sessionId") UUID sessionId, @Param("now") LocalDateTime now);
 
+  // Logout 1 thiết bị, ràng buộc đúng chủ session để tránh revoke nhầm user.
+  @Modifying
+  @Query(
+      """
+                UPDATE Session s SET s.revokedAt = :now
+                WHERE s.id = :sessionId AND s.user.id = :userId AND s.revokedAt IS NULL
+            """)
+  int revokeIfNotRevokedByUser(
+      @Param("sessionId") UUID sessionId,
+      @Param("userId") UUID userId,
+      @Param("now") LocalDateTime now);
+
   // Logout tất cả thiết bị (Force Logout)
   @Modifying
   @Query(
