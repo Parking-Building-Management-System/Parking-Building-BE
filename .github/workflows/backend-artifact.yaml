@@ -1,0 +1,71 @@
+name: Backend CD
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: backend-cd-main
+  cancel-in-progress: true
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/parking-building-be:v${{ github.run_number }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy backend via script
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: GITHUB_RUN_NUMBER
+          script: |
+            set -e
+            TAG="v${GITHUB_RUN_NUMBER}"
+            echo "Starting Deployment for SmartPark Version: $TAG"
+
+            # Đổi đường dẫn script sang thư mục mới
+            SCRIPT_PATH="/opt/smartpark/script/deploy.sh"
+
+            if [ -f "$SCRIPT_PATH" ]; then
+                chmod +x $SCRIPT_PATH
+                # Truyền TAG vào để script tự cập nhật version trong docker-compose
+                $SCRIPT_PATH $TAG
+            else
+                echo "Error: File $SCRIPT_PATH does not exist!"
+                exit 1
+            fi
