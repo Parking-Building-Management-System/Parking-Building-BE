@@ -3,6 +3,7 @@ package com.smartpark.swp391.modules.identity.controller;
 import com.smartpark.swp391.common.exception.ErrorCode;
 import com.smartpark.swp391.common.response.ApiResponse;
 import com.smartpark.swp391.modules.identity.dto.tenant.request.TenantCreationRequest;
+import com.smartpark.swp391.modules.identity.dto.tenant.request.TenantStatusUpdateRequest;
 import com.smartpark.swp391.modules.identity.dto.tenant.response.TenantResponse;
 import com.smartpark.swp391.modules.identity.service.TenantService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -17,6 +18,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -30,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/tenants")
 @RequiredArgsConstructor
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
+@PreAuthorize("hasRole('SYSTEM_ADMIN')")
 @Tag(
     name = "Tenant Management",
     description = "Quản lý khách hàng (Tenant) - Dành cho System Admin")
@@ -76,6 +79,24 @@ public class TenantController {
             .message("Lấy thông tin thành công")
             .result(tenantService.getTenantById(id))
             .timestamp(Instant.now())
+            .build());
+  }
+
+  @Operation(
+      summary = "Cập nhật trạng thái Tenant",
+      description =
+          "Bật/tắt tenant theo trạng thái ACTIVE hoặc SUSPENDED. Khi chuyển sang SUSPENDED,"
+              + " toàn bộ session active thuộc tenant sẽ bị revoke.")
+  @PatchMapping("/{id}/status")
+  public ResponseEntity<ApiResponse<TenantResponse>> updateTenantStatus(
+      @PathVariable UUID id, @Valid @RequestBody TenantStatusUpdateRequest request) {
+    return ResponseEntity.ok(
+        ApiResponse.<TenantResponse>builder()
+            .code(ErrorCode.SUCCESS.getCode())
+            .message("Cập nhật trạng thái khách hàng thành công")
+            .result(tenantService.updateTenantStatus(id, request.status()))
+            .timestamp(Instant.now())
+            .path("/tenants/" + id + "/status")
             .build());
   }
 
