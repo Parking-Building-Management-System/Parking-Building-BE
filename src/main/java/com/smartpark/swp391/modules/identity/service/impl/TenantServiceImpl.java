@@ -2,14 +2,19 @@ package com.smartpark.swp391.modules.identity.service.impl;
 
 import com.smartpark.swp391.common.exception.ApiException;
 import com.smartpark.swp391.common.exception.ErrorCode;
+import com.smartpark.swp391.infrastructure.cached.redis.service.SessionAuthorityCacheService;
 import com.smartpark.swp391.infrastructure.cached.redis.service.TenantCacheService;
 import com.smartpark.swp391.modules.identity.dto.tenant.request.TenantCreationRequest;
 import com.smartpark.swp391.modules.identity.dto.tenant.response.TenantResponse;
 import com.smartpark.swp391.modules.identity.entity.Tenant;
 import com.smartpark.swp391.modules.identity.enumType.TenantStatus;
 import com.smartpark.swp391.modules.identity.mapper.TenantMapper;
+import com.smartpark.swp391.modules.identity.repository.SessionRepository;
 import com.smartpark.swp391.modules.identity.repository.TenantRepository;
 import com.smartpark.swp391.modules.identity.service.TenantService;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +30,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class TenantServiceImpl implements TenantService {
 
   TenantRepository tenantRepository;
+  SessionRepository sessionRepository;
   TenantCacheService tenantCacheService;
+  SessionAuthorityCacheService sessionAuthorityCacheService;
   TenantMapper tenantMapper;
 
   @Override
@@ -80,6 +87,32 @@ public class TenantServiceImpl implements TenantService {
 
   @Override
   @Transactional
+  public TenantResponse updateTenantStatus(UUID id, TenantStatus status) {
+    log.info("Nhận yêu cầu cập nhật trạng thái Tenant ID: {} -> {}", id, status);
+
+    Tenant tenant =
+        tenantRepository
+            .findById(id)
+            .orElseThrow(
+                () -> {
+                  log.error("Cập nhật trạng thái thất bại - Không tìm thấy Tenant ID: {}", id);
+                  return new ApiException(ErrorCode.RESOURCE_NOT_FOUND);
+                });
+
+    tenant.setStatus(status);
+    tenantRepository.save(tenant);
+    tenantCacheService.evictTenantData(id);
+
+    if (status == TenantStatus.SUSPENDED) {
+      revokeTenantSessions(id);
+    }
+
+    log.info("Đã cập nhật trạng thái Tenant ID: {} thành {}", id, status);
+    return tenantMapper.toResponse(tenant);
+  }
+
+  @Override
+  @Transactional
   public void suspendTenant(UUID id) {
     log.info("Nhận yêu cầu đình chỉ (Suspend) Tenant ID: {}", id);
 
@@ -96,6 +129,7 @@ public class TenantServiceImpl implements TenantService {
     tenantRepository.save(tenant);
 
     tenantCacheService.evictTenantData(id);
+    revokeTenantSessions(id);
     log.info("Đã đình chỉ thành công và dọn sạch Cache/Session của Tenant ID: {}", id);
   }
 
@@ -118,5 +152,22 @@ public class TenantServiceImpl implements TenantService {
 
     tenantCacheService.evictTenantData(id);
     log.info("Xóa mềm thành công và đã xóa toàn bộ Cache của Tenant ID: {}", id);
+  }
+
+  private void revokeTenantSessions(UUID tenantId) {
+    LocalDateTime now = LocalDateTime.now();
+    List<UUID> sessionIds = sessionRepository.findActiveSessionIdsByTenantId(tenantId, now);
+    sessionRepository.revokeAllActiveByTenantId(tenantId, now);
+
+    Duration accessTtl = Duration.ofMinutes(15);
+    for (UUID sessionId : sessionIds) {
+      try {
+        sessionAuthorityCacheService.markRevoked(sessionId, accessTtl);
+        sessionAuthorityCacheService.clearAuthz(sessionId);
+        sessionAuthorityCacheService.clearActive(sessionId);
+      } catch (Exception ex) {
+        log.warn("Không revoke được Redis cache cho sessionId={}", sessionId, ex);
+      }
+    }
   }
 }
