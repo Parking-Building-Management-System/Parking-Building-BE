@@ -15,14 +15,19 @@ Hiện dự án có các controller public trên Swagger:
 - `POST /auth/logout`
 - `POST /auth/logout-all`
 - `POST /auth/admin/users/{userId}/force-logout`
+- `GET /dashboard/counters`
+- `GET /dashboard/traffic`
 - `POST /tenants`
 - `GET /tenants/{id}`
+- `PATCH /tenants/{id}/status`
 - `PATCH /tenants/{id}/suspend`
 - `DELETE /tenants/{id}`
+- `PATCH /vehicle-types/{id}`
+- `DELETE /vehicle-types/{id}`
 
-Lưu ý hiện trạng code: nhóm `/tenants/**` chỉ yêu cầu Bearer token, chưa có `@PreAuthorize`
-cho `SYSTEM_ADMIN` dù Swagger tag ghi "Dành cho System Admin". Vì vậy plan dưới đây có case
-xác nhận user không phải system admin vẫn gọi được tenant endpoint theo code hiện tại.
+Lưu ý hiện trạng code mới: nhóm `/tenants/**` và `/dashboard/**` yêu cầu role `SYSTEM_ADMIN`.
+Nhóm `/vehicle-types/**` yêu cầu permission `PERM_QUYEN_TREN_APP.BAI_XE.LOAI_XE.MANAGE`, nên
+`SYSTEM_ADMIN` và `PARKING_MANAGER` theo seed hiện tại đều gọi được.
 
 ## 2. Chuẩn bị dữ liệu
 
@@ -41,6 +46,9 @@ SQL tra cứu ID khi cần nhập path variable:
 ```sql
 select id, username, status from users order by username;
 select id, slug, status, is_deleted from tenants order by slug;
+select id, name, status, is_deleted from parkings order by name;
+select id, name, code, is_active, is_deleted from vehicle_types order by code;
+select date_trunc('hour', occurred_at) bucket, count(*) from api_traffic_logs group by bucket order by bucket desc;
 select id, user_id, fingerprint, status from devices order by fingerprint;
 select id, user_id, refresh_jti, revoked_at, expired_at from sessions order by created_at desc;
 ```
@@ -72,6 +80,7 @@ where fingerprint in (
 
 delete from sessions;
 delete from devices where fingerprint like 'swagger-%';
+delete from api_traffic_logs;
 ```
 
 ## 3. Cách thao tác token trên Swagger
@@ -191,8 +200,8 @@ where id = '<session-id-can-test>';
 
 ## 6. Tenant Management
 
-Trước nhóm case này, login admin và Authorize bằng admin access token. Sau đó test thêm bằng manager
-để xác nhận hiện trạng chưa enforce role.
+Trước nhóm case này, login admin và Authorize bằng admin access token. Test thêm bằng manager để
+xác nhận các endpoint tenant trả `403`.
 
 ### `POST /tenants`
 
@@ -207,7 +216,7 @@ Trước nhóm case này, login admin và Authorize bằng admin access token. S
 | T07 | Slug đã tồn tại, ví dụ `demo-parking-tower` | `409`, `code=4090`, message `Khách hàng đã tồn tại` |
 | T08 | JSON sai format | `400`, `code=4001` |
 | T09 | Content-Type không phải JSON | `415`, `code=4150` |
-| T10 | Manager token tạo tenant | Hiện tại vẫn `200` nếu body hợp lệ; ghi nhận thiếu authorization nếu business yêu cầu System Admin |
+| T10 | Manager token tạo tenant | `403`, `code=4030` |
 
 Body mẫu:
 
@@ -229,7 +238,19 @@ Body mẫu:
 | TG04 | ID không đúng UUID format | `400`, thường map về `code=4999` |
 | TG05 | Tenant đã suspend | `200`, `status=SUSPENDED` |
 | TG06 | Tenant đã soft delete | `404`, do entity có `@SQLRestriction("is_deleted = false")` |
-| TG07 | Manager token gọi get tenant | Hiện tại vẫn được nếu token hợp lệ |
+| TG07 | Manager token gọi get tenant | `403`, `code=4030` |
+
+### `PATCH /tenants/{id}/status`
+
+| Case | Request/Setup | Kỳ vọng |
+| --- | --- | --- |
+| TU01 | Không Bearer token | `401`, `code=4010` |
+| TU02 | Admin token, body `{ "status": "SUSPENDED" }` | `200`, trả `TenantResponse.status=SUSPENDED`, evict cache và revoke session active của tenant |
+| TU03 | Admin token, body `{ "status": "ACTIVE" }` | `200`, trả `TenantResponse.status=ACTIVE` |
+| TU04 | Body thiếu `status` | `400`, `code=4000`, `errors.status` |
+| TU05 | `status` không thuộc `ACTIVE/SUSPENDED` | `400`, `code=4001` hoặc `4999` tùy lỗi parse enum |
+| TU06 | UUID hợp lệ nhưng không tồn tại | `404`, `code=4040` |
+| TU07 | Manager token update status | `403`, `code=4030` |
 
 ### `PATCH /tenants/{id}/suspend`
 
@@ -241,7 +262,7 @@ Body mẫu:
 | TS04 | UUID hợp lệ nhưng không tồn tại | `404`, `code=4040` |
 | TS05 | ID sai UUID format | `400`, thường map về `code=4999` |
 | TS06 | Sau khi suspend `demo-parking-tower`, login manager/staff/driver | `403`, `code=4030` |
-| TS07 | Manager token suspend tenant | Hiện tại vẫn được nếu token hợp lệ |
+| TS07 | Manager token suspend tenant | `403`, `code=4030` |
 
 ### `DELETE /tenants/{id}`
 
@@ -254,19 +275,75 @@ Body mẫu:
 | TD05 | UUID hợp lệ nhưng không tồn tại | `404`, `code=4040` |
 | TD06 | ID sai UUID format | `400`, thường map về `code=4999` |
 | TD07 | Tạo lại tenant cùng slug đã soft delete | Kỳ vọng `409`, do unique constraint DB vẫn giữ slug cũ |
-| TD08 | Manager token delete tenant | Hiện tại vẫn được nếu token hợp lệ |
+| TD08 | Manager token delete tenant | `403`, `code=4030` |
 
-## 7. Checklist chạy end-to-end đề xuất
+## 7. Dashboard
+
+### `GET /dashboard/counters`
+
+| Case | Setup | Kỳ vọng |
+| --- | --- | --- |
+| D01 | Không Bearer token | `401`, `code=4010` |
+| D02 | Admin token | `200`, `activeTenantCount` đếm tenant `ACTIVE` chưa delete, `activeParkingCount` đếm parking `ACTIVE` chưa delete |
+| D03 | Manager/staff/driver token | `403`, `code=4030` |
+
+### `GET /dashboard/traffic`
+
+| Case | Request | Kỳ vọng |
+| --- | --- | --- |
+| TR01 | Admin token, không truyền query | `200`, mặc định lấy 24h gần nhất, `bucket=HOUR` |
+| TR02 | Admin token, `bucket=MINUTE/HOUR/DAY` | `200`, group đúng bucket, trả `points[].requestCount/errorCount/averageDurationMs` |
+| TR03 | `from >= to` | `400`, `code=4002` |
+| TR04 | `bucket` sai enum | `400`, request failed |
+| TR05 | Manager/staff/driver token | `403`, `code=4030` |
+
+Ghi chú: filter `ApiTrafficLoggingFilter` ghi traffic của các API nghiệp vụ vào `api_traffic_logs`.
+Các path `/dashboard`, Swagger, Actuator và healthcheck được bỏ qua để biểu đồ không tự phình khi mở dashboard.
+
+## 8. Vehicle Types
+
+Lấy ID loại phương tiện bằng SQL:
+
+```sql
+select id, name, code, is_active, is_deleted from vehicle_types order by code;
+```
+
+### `PATCH /vehicle-types/{id}`
+
+| Case | Request/Setup | Kỳ vọng |
+| --- | --- | --- |
+| VU01 | Không Bearer token | `401`, `code=4010` |
+| VU02 | Admin hoặc manager token, body `{ "name": "Xe máy điện", "code": "E_MOTORBIKE", "active": true }` | `200`, trả `VehicleTypeResponse` mới |
+| VU03 | Body chỉ truyền một field, ví dụ `{ "active": false }` | `200`, update partial |
+| VU04 | Body rỗng `{}` | `400`, `code=4002` |
+| VU05 | `code` trùng loại xe khác | `409`, `code=4090` |
+| VU06 | `code` có chữ thường/ký tự lạ | `400`, `code=4000`, `errors.code` |
+| VU07 | UUID hợp lệ nhưng không tồn tại | `404`, `code=4040` |
+| VU08 | Staff/driver token | `403`, `code=4030` |
+
+### `DELETE /vehicle-types/{id}`
+
+| Case | Setup | Kỳ vọng |
+| --- | --- | --- |
+| VD01 | Không Bearer token | `401`, `code=4010` |
+| VD02 | Admin hoặc manager token, ID tồn tại | `200`, soft delete: `is_deleted=true`, `is_active=false` |
+| VD03 | Delete lại cùng ID | `404`, do entity có `@SQLRestriction("is_deleted = false")` |
+| VD04 | UUID hợp lệ nhưng không tồn tại | `404`, `code=4040` |
+| VD05 | Staff/driver token | `403`, `code=4030` |
+
+## 9. Checklist chạy end-to-end đề xuất
 
 1. Reset DB bằng SQL ở mục 2.
 2. A01, M03: login admin, authorize, kiểm tra `/auth/me`.
-3. T02, TG02, TS02, TG05: tạo tenant mới, get, suspend, get lại.
-4. TD02, TD03, TD07: delete tenant vừa tạo và thử tạo lại cùng slug.
-5. A02, M04: login manager/staff/driver và kiểm tra role/permission.
-6. F01, M07: admin force logout một user khác.
-7. LA02, LA03: logout-all cover revoke nhiều session.
-8. R01, R05: refresh thành công rồi replay refresh cũ.
-9. A03-A12, R02-R09, M01-M02, L01-L04, F02-F05, T03-T10, TG03-TG07, TS03-TS07,
-   TD04-TD08: chạy negative/idempotent cases còn lại.
+3. D02, TR01: kiểm tra counters và traffic dashboard.
+4. T02, TG02, TU02, TG05, TU03: tạo tenant mới, get, suspend bằng status API, get lại, active lại.
+5. TD02, TD03, TD07: delete tenant vừa tạo và thử tạo lại cùng slug.
+6. VU02, VU03, VD02: update partial và delete mềm loại phương tiện.
+7. A02, M04: login manager/staff/driver và kiểm tra role/permission.
+8. F01, M07: admin force logout một user khác.
+9. LA02, LA03: logout-all cover revoke nhiều session.
+10. R01, R05: refresh thành công rồi replay refresh cũ.
+11. A03-A12, R02-R09, M01-M02, L01-L04, F02-F05, T03-T10, TG03-TG07, TU04-TU07,
+    TS03-TS07, TD04-TD08, D03, TR03-TR05, VU04-VU08, VD03-VD05: chạy negative/idempotent cases còn lại.
 
 Khi test xong, reset DB lại nếu cần tiếp tục phát triển local.
