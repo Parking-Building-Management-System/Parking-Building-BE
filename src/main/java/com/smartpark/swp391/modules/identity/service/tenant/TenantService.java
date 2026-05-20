@@ -1,4 +1,4 @@
-package com.smartpark.swp391.modules.identity.service;
+package com.smartpark.swp391.modules.identity.service.tenant;
 
 import com.smartpark.swp391.modules.identity.dto.tenant.request.TenantCreationRequest;
 import com.smartpark.swp391.modules.identity.dto.tenant.response.TenantResponse;

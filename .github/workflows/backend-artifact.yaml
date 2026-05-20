@@ -58,12 +58,10 @@ jobs:
             TAG="v${GITHUB_RUN_NUMBER}"
             echo "Starting Deployment for SmartPark Version: $TAG"
 
-            # Đổi đường dẫn script sang thư mục mới
-            SCRIPT_PATH="/opt/smartpark/script/deploy.sh"
+            SCRIPT_PATH="/root/selfhost/smartpark/script/deploy.sh"
 
             if [ -f "$SCRIPT_PATH" ]; then
                 chmod +x $SCRIPT_PATH
-                # Truyền TAG vào để script tự cập nhật version trong docker-compose
                 $SCRIPT_PATH $TAG
             else
                 echo "Error: File $SCRIPT_PATH does not exist!"
