@@ -31,6 +31,7 @@ import java.util.regex.Pattern;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.experimental.NonFinal;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -56,6 +57,7 @@ public class AdminTenantManagementServiceImpl implements AdminTenantManagementSe
   PasswordEncoder passwordEncoder;
 
   @Value("${jwt.valid-duration}")
+  @NonFinal
   long accessTokenTtlSeconds;
 
   @Override
