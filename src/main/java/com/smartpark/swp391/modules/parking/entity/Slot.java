@@ -38,6 +38,10 @@ public class Slot extends TenantScopedEntity {
   @JoinColumn(name = "zone_id", nullable = false)
   private Zone zone;
 
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "floor_id")
+  private Floor floor;
+
   @Column(nullable = false, length = 50)
   private String code;
 

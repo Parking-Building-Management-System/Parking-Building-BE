@@ -1,12 +1,8 @@
 package com.smartpark.swp391.modules.parking.entity;
 
 import com.smartpark.swp391.infrastructure.persistence.TenantScopedEntity;
-import com.smartpark.swp391.modules.parking.enumType.ZoneStatus;
-import com.smartpark.swp391.modules.vehicle.entity.VehicleType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -21,7 +17,7 @@ import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.SQLRestriction;
 
 @Entity
-@Table(name = "zones")
+@Table(name = "floors")
 @Getter
 @Setter
 @SuperBuilder
@@ -29,39 +25,27 @@ import org.hibernate.annotations.SQLRestriction;
 @AllArgsConstructor
 @Filter(name = TenantScopedEntity.TENANT_FILTER, condition = "tenant_id = cast(:tenantId as uuid)")
 @SQLRestriction("is_deleted = false")
-public class Zone extends TenantScopedEntity {
+public class Floor extends TenantScopedEntity {
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "parking_id", nullable = false)
   private Parking parking;
 
-  @ManyToOne(fetch = FetchType.LAZY)
-  @JoinColumn(name = "floor_id")
-  private Floor floor;
-
-  @ManyToOne(fetch = FetchType.LAZY)
-  @JoinColumn(name = "vehicle_type_id")
-  private VehicleType vehicleType;
-
   @Column(nullable = false, length = 50)
   private String code;
 
-  @Column(nullable = false, length = 255)
+  @Column(nullable = false, length = 100)
   private String name;
 
-  @Column(name = "floor_name", length = 50)
-  private String floorName;
-
-  @Column(nullable = false)
+  @Column(name = "display_order", nullable = false)
   @Builder.Default
-  private Integer capacity = 0;
+  private Integer displayOrder = 0;
 
-  @Enumerated(EnumType.STRING)
-  @Column(nullable = false, length = 20)
+  @Column(name = "is_active", nullable = false)
   @Builder.Default
-  private ZoneStatus status = ZoneStatus.ACTIVE;
+  private boolean active = true;
 
   @Column(name = "is_deleted", nullable = false)
   @Builder.Default
-  private boolean isDeleted = false;
+  private boolean deleted = false;
 }
