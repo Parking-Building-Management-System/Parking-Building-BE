@@ -4,7 +4,7 @@ import com.smartpark.swp391.common.exception.ErrorCode;
 import com.smartpark.swp391.common.response.ApiResponse;
 import com.smartpark.swp391.modules.identity.dto.tenant.request.TenantCreationRequest;
 import com.smartpark.swp391.modules.identity.dto.tenant.response.TenantResponse;
-import com.smartpark.swp391.modules.identity.service.TenantService;
+import com.smartpark.swp391.modules.identity.service.tenant.TenantService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;

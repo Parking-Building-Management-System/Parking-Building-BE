@@ -1,4 +1,4 @@
-package com.smartpark.swp391.modules.identity.service.impl;
+package com.smartpark.swp391.modules.identity.service.tenant.impl;
 
 import com.smartpark.swp391.common.exception.ApiException;
 import com.smartpark.swp391.common.exception.ErrorCode;
@@ -9,7 +9,7 @@ import com.smartpark.swp391.modules.identity.entity.Tenant;
 import com.smartpark.swp391.modules.identity.enumType.TenantStatus;
 import com.smartpark.swp391.modules.identity.mapper.TenantMapper;
 import com.smartpark.swp391.modules.identity.repository.TenantRepository;
-import com.smartpark.swp391.modules.identity.service.TenantService;
+import com.smartpark.swp391.modules.identity.service.tenant.TenantService;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
