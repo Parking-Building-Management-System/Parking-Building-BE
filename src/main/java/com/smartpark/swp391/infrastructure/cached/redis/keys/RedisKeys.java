@@ -16,6 +16,8 @@ public final class RedisKeys {
   private static final String SESS_REVOKED = PREFIX + ":sess:revoked:";
   private static final String SESS_ACTIVE = PREFIX + ":sess:active:";
   private static final String TENANT_DETAIL = PREFIX + ":tenant:detail:%s";
+  private static final String ADMIN_DASHBOARD_STATS = PREFIX + ":admin:dashboard:stats";
+  private static final String ADMIN_VEHICLE_TYPES = PREFIX + ":admin:master-data:vehicle-types";
 
   private static final String RATE_LIMIT_USER = PREFIX + ":ratelimit:user:";
   private static final String RATE_LIMIT_LOGIN = PREFIX + ":ratelimit:login:";
@@ -71,5 +73,13 @@ public final class RedisKeys {
   public static String tenantPattern(UUID tenantId) {
     requireNonBlank(tenantId, "tenantId");
     return PREFIX + ":tenant:" + tenantId + ":*";
+  }
+
+  public static String adminDashboardStats() {
+    return ADMIN_DASHBOARD_STATS;
+  }
+
+  public static String adminVehicleTypes() {
+    return ADMIN_VEHICLE_TYPES;
   }
 }
