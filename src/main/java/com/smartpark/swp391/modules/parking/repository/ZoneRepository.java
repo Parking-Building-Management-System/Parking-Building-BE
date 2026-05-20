@@ -11,10 +11,17 @@ public interface ZoneRepository extends JpaRepository<Zone, UUID> {
 
   List<Zone> findAllByParkingIdAndIsDeletedFalseOrderByNameAsc(UUID parkingId);
 
+  long countByFloorIdAndIsDeletedFalse(UUID floorId);
+
   Optional<Zone> findByFloorIdAndCodeIgnoreCaseAndIsDeletedFalse(UUID floorId, String code);
 
   boolean existsByFloorIdAndCodeIgnoreCaseAndIsDeletedFalse(UUID floorId, String code);
 
   boolean existsByFloorIdAndCodeIgnoreCaseAndIdNotAndIsDeletedFalse(
       UUID floorId, String code, UUID id);
+
+  boolean existsByParkingIdAndCodeIgnoreCaseAndIsDeletedFalse(UUID parkingId, String code);
+
+  boolean existsByParkingIdAndCodeIgnoreCaseAndIdNotAndIsDeletedFalse(
+      UUID parkingId, String code, UUID id);
 }

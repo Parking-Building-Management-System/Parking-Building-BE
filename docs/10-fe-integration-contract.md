@@ -325,6 +325,328 @@ Ghi chú cho FE:
 
 - Sau delete, JPA query bị `@SQLRestriction("is_deleted = false")` nên tenant không còn hiện trong read API.
 
+## Contract cho PARKING_MANAGER Facility APIs
+
+Auth required: yes.
+
+Required role:
+
+- `PARKING_MANAGER`
+
+Tenant isolation:
+
+- FE does not send `X-Tenant-Id`.
+- Backend reads `tenant_id` from the authenticated JWT and sets `TenantContext`.
+- Hibernate tenant filter applies to parking, floor, zone, and slot queries.
+
+Base paths:
+
+- `/manager/parkings`
+- `/manager/floors`
+- `/manager/zones`
+- `/manager/slots`
+
+### Parkings
+
+`GET /manager/parkings`
+
+Success result:
+
+```json
+[
+  {
+    "id": "uuid",
+    "code": "VINCOM-DK",
+    "name": "Vincom Dong Khoi",
+    "address": "72 Le Thanh Ton, District 1, Ho Chi Minh City",
+    "totalCapacity": 120,
+    "status": "ACTIVE"
+  }
+]
+```
+
+Notes:
+
+- `totalCapacity` is calculated from current slot count, not trusted from stale FE state.
+
+`PATCH /manager/parkings/{id}/status`
+
+Behavior:
+
+- `ACTIVE -> MAINTENANCE`
+- any non-active parking status currently toggles back to `ACTIVE`
+
+Success result:
+
+```json
+{
+  "id": "uuid",
+  "status": "MAINTENANCE"
+}
+```
+
+`GET /manager/parkings/{id}/topology`
+
+Success result:
+
+```json
+{
+  "id": "uuid",
+  "code": "VINCOM-DK",
+  "name": "Vincom Dong Khoi",
+  "status": "ACTIVE",
+  "totalCapacity": 120,
+  "floors": [
+    {
+      "id": "uuid",
+      "code": "B1",
+      "name": "Basement 1",
+      "displayOrder": 1,
+      "zones": [
+        {
+          "id": "uuid",
+          "code": "CAR-A",
+          "name": "Car Area A",
+          "vehicleTypeCode": "CAR",
+          "vehicleTypeName": "Car",
+          "capacity": 60,
+          "slotCount": 60,
+          "status": "ACTIVE"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Cache behavior:
+
+- Cache key: `smartpark:tenant:{tenantId}:topology:{parkingId}`
+- TTL: 10 minutes
+- Backend evicts when parking status, floors, zones, or slots mutate.
+- FE should invalidate/refetch topology after any facility or slot mutation succeeds.
+
+### Floors
+
+Endpoints:
+
+| Method | URL | Meaning |
+| --- | --- | --- |
+| `GET` | `/manager/parkings/{parkingId}/floors` | List floors in a parking |
+| `POST` | `/manager/parkings/{parkingId}/floors` | Create floor |
+| `GET` | `/manager/floors/{id}` | Get floor detail |
+| `PUT` | `/manager/floors/{id}` | Update floor |
+| `DELETE` | `/manager/floors/{id}` | Soft-delete an empty floor |
+
+Create/update request:
+
+```json
+{
+  "code": "B1",
+  "name": "Basement 1",
+  "displayOrder": 1,
+  "active": true
+}
+```
+
+Success result:
+
+```json
+{
+  "id": "uuid",
+  "parkingId": "uuid",
+  "code": "B1",
+  "name": "Basement 1",
+  "displayOrder": 1,
+  "active": true
+}
+```
+
+Validation:
+
+- `code`: required, max 50, unique inside the parking.
+- `name`: required, max 100.
+- `displayOrder`: required.
+- Delete fails if the floor still has zones.
+
+### Zones
+
+Endpoints:
+
+| Method | URL | Meaning |
+| --- | --- | --- |
+| `GET` | `/manager/floors/{floorId}/zones` | List zones in a floor |
+| `POST` | `/manager/floors/{floorId}/zones` | Create zone |
+| `GET` | `/manager/zones/{id}` | Get zone detail |
+| `PUT` | `/manager/zones/{id}` | Update zone |
+| `DELETE` | `/manager/zones/{id}` | Soft-delete an empty zone |
+
+Create/update request:
+
+```json
+{
+  "code": "CAR-A",
+  "name": "Car Area A",
+  "vehicleTypeCode": "CAR",
+  "capacity": 60,
+  "status": "ACTIVE"
+}
+```
+
+Success result:
+
+```json
+{
+  "id": "uuid",
+  "parkingId": "uuid",
+  "floorId": "uuid",
+  "code": "CAR-A",
+  "name": "Car Area A",
+  "vehicleTypeCode": "CAR",
+  "vehicleTypeName": "Car",
+  "capacity": 60,
+  "status": "ACTIVE"
+}
+```
+
+Validation:
+
+- `vehicleTypeCode` must exist in global `vehicle_types` and be active.
+- Zone code must be unique inside the parking.
+- Delete fails if the zone still has slots.
+
+Enum values:
+
+- `ZoneStatus`: `ACTIVE`, `INACTIVE`, `MAINTENANCE`
+
+### Slots
+
+`GET /manager/slots`
+
+Query params:
+
+| Param | Type | Required | Default | Meaning |
+| --- | --- | --- | --- | --- |
+| `zoneId` | UUID | no | none | Filter by zone |
+| `status` | enum | no | none | Filter by slot status |
+| `slotCode` | string | no | none | Filter by slot code |
+| `exact` | boolean | no | `false` | Exact match when true, LIKE search when false |
+| `page` | number | no | `0` | 0-based page |
+| `size` | number | no | `20` | 1..100 |
+
+Success result uses `PageResponse`:
+
+```json
+{
+  "content": [
+    {
+      "id": "uuid",
+      "parkingId": "uuid",
+      "parkingName": "Vincom Dong Khoi",
+      "floorId": "uuid",
+      "floorName": "Basement 1",
+      "zoneId": "uuid",
+      "zoneName": "Car Area A",
+      "code": "A01",
+      "slotNumber": "A01",
+      "status": "AVAILABLE"
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 1,
+  "totalPages": 1
+}
+```
+
+`PATCH /manager/slots/bulk-status`
+
+Request:
+
+```json
+{
+  "slotIds": ["uuid-1", "uuid-2"],
+  "newStatus": "MAINTENANCE"
+}
+```
+
+Allowed `newStatus` values:
+
+- `AVAILABLE`
+- `MAINTENANCE`
+- `LOCKED`
+
+Success result:
+
+```json
+{
+  "updatedCount": 2,
+  "newStatus": "MAINTENANCE"
+}
+```
+
+`POST /manager/slots/import`
+
+Content type: `multipart/form-data`
+
+Form field:
+
+- `file`: Excel workbook
+
+Required Excel headers:
+
+- `parkingCode`
+- `floorCode`
+- `zoneCode`
+- `slotCode`
+
+Optional Excel headers:
+
+- `slotNumber`
+- `status`
+
+Rules:
+
+- Parking, floor, and zone must exist under the JWT tenant.
+- Slot code must be unique inside the zone.
+- Blank rows are ignored.
+- If any row is invalid, backend rejects the import instead of partially inserting.
+
+Success result:
+
+```json
+{
+  "insertedCount": 25
+}
+```
+
+`GET /manager/slots/export`
+
+Response:
+
+- Content-Type: `application/vnd.ms-excel`
+- Content-Disposition: attachment
+- Body: Excel file with all tenant slots.
+
+Slot status enum values:
+
+- `AVAILABLE`
+- `OCCUPIED`
+- `RESERVED`
+- `MAINTENANCE`
+- `LOCKED`
+
+Common expected errors:
+
+| HTTP | Code | Case |
+| --- | ---: | --- |
+| 400 | `4000` | Validation failed |
+| 400 | `4002` | Invalid import file, invalid status, inactive vehicle type, or delete blocked by children |
+| 401 | `4010` | Missing/invalid/revoked token or missing tenant claim |
+| 403 | `4030` | User is not `PARKING_MANAGER` |
+| 404 | `4040` | Parking, floor, zone, vehicle type, or slot not found inside tenant |
+| 409 | `4090` | Duplicate floor, zone, or slot code |
+
 ## Error code nên FE biết
 
 | Code | Meaning |

@@ -65,7 +65,7 @@ Lưu ý: backend vừa trả refresh token trong response body, vừa set `refre
 - `@EnableWebSecurity`
 - `@EnableMethodSecurity`
 - `PasswordEncoder`: `BCryptPasswordEncoder(10)`
-- Public endpoints: `/auth/login`, `/auth/refresh`, `/api/v1/auth/login`, `/api/v1/auth/refresh`, health check.
+- Public endpoints: `/auth/login`, `/auth/refresh`, health check.
 - Swagger public: `/v3/api-docs/**`, `/swagger-ui/**`, `/swagger-ui.html`.
 - `/ws/**` public.
 - Các request còn lại cần authenticated.

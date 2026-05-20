@@ -61,8 +61,11 @@ Hiện code có:
 - `/tenants`
 - `/tenants/{id}`
 - `/tenants/{id}/suspend`
+- `/admin/...`
+- `/manager/...`
 
-Chưa thấy versioning `/api/v1` ở controller hiện tại, dù `SecurityConfig` có permit thêm `/api/v1/auth/login` và `/api/v1/auth/refresh`. Nếu thêm API mới, cần confirm với FE/leader có dùng prefix `/api/v1` hay không.
+API hiện dùng unversioned paths. Không thêm versioned prefix vào `@RequestMapping` nếu chưa có
+quyết định kiến trúc mới.
 
 Quy tắc RESTful đề xuất:
 

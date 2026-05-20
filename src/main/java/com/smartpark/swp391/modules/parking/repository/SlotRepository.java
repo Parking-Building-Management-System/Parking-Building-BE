@@ -21,7 +21,17 @@ public interface SlotRepository extends JpaRepository<Slot, UUID>, JpaSpecificat
 
   Optional<Slot> findByZoneIdAndCodeIgnoreCaseAndIsDeletedFalse(UUID zoneId, String code);
 
-  List<Slot> findAllByIsDeletedFalseOrderByParkingNameAscZoneNameAscCodeAsc();
+  @Query(
+      """
+          SELECT s
+          FROM Slot s
+          JOIN FETCH s.parking p
+          JOIN FETCH s.zone z
+          LEFT JOIN FETCH s.floor f
+          WHERE s.isDeleted = false
+          ORDER BY p.name ASC, z.name ASC, s.code ASC
+          """)
+  List<Slot> findAllForExport();
 
   Page<Slot> findAll(Pageable pageable);
 
