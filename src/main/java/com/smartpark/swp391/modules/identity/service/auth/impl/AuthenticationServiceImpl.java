@@ -85,19 +85,24 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     Device device =
         deviceRepository
             .findByUserIdAndFingerprint(user.getId(), request.deviceFingerprint())
-            .orElseGet(
-                () -> {
-                  // Máy lạ hoắc -> Lưu xuống DB với trạng thái PENDING chờ duyệt
-                  Device newDevice =
-                      Device.builder()
-                          .user(user)
-                          .fingerprint(request.deviceFingerprint())
-                          .label(request.deviceLabel())
-                          .status(DeviceStatus.PENDING)
-                          .build();
-                  deviceRepository.save(newDevice);
-                  throw new ApiException(ErrorCode.DEVICE_NOT_TRUST);
-                });
+            .orElse(null);
+
+    if (device == null) {
+      // Máy lạ hoắc -> Lưu xuống DB với trạng thái PENDING chờ duyệt
+      Device newDevice =
+          Device.builder()
+              .user(user)
+              .fingerprint(request.deviceFingerprint())
+              .label(request.deviceLabel())
+              .status(DeviceStatus.PENDING)
+              .build();
+      deviceRepository.save(newDevice);
+      throw new ApiException(ErrorCode.DEVICE_NOT_TRUST);
+    }
+
+    if (device.getStatus() == DeviceStatus.SUSPENDED) {
+      throw new ApiException(ErrorCode.FORBIDDEN_ACTION);
+    }
 
     if (device.getStatus() != DeviceStatus.APPROVED) {
       throw new ApiException(ErrorCode.DEVICE_NOT_TRUST);

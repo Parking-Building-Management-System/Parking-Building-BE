@@ -17,7 +17,7 @@ public enum ErrorCode {
   VALIDATION_ERROR(4000, "Validation failed", HttpStatus.BAD_REQUEST),
   MALFORMED_JSON(4001, "Malformed JSON request", HttpStatus.BAD_REQUEST),
   INVALID_INPUT(4002, "Invalid input", HttpStatus.BAD_REQUEST),
-  DEVICE_NOT_TRUST(4005, "Thiết bị chưa được tin cậy", HttpStatus.BAD_REQUEST),
+  DEVICE_NOT_TRUST(4005, "Thiết bị chưa được tin cậy", HttpStatus.FORBIDDEN),
   UNAUTHENTICATED(4010, "Unauthenticated", HttpStatus.UNAUTHORIZED),
   FORBIDDEN_ACTION(4030, "Forbidden", HttpStatus.FORBIDDEN),
   RESOURCE_NOT_FOUND(4040, "Not found", HttpStatus.NOT_FOUND),
