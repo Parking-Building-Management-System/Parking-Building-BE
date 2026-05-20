@@ -34,7 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Validated
 @RestController
-@RequestMapping({"/admin/tenants", "/api/v1/admin/tenants"})
+@RequestMapping("/admin/tenants")
 @RequiredArgsConstructor
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 @PreAuthorize("hasRole('SYSTEM_ADMIN')")
