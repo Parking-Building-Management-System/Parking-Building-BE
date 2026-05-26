@@ -10,9 +10,12 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import jakarta.persistence.LockModeType;
 
 public interface SlotRepository extends JpaRepository<Slot, UUID>, JpaSpecificationExecutor<Slot> {
   long countByParkingIdAndIsDeletedFalse(UUID parkingId);
@@ -34,6 +37,27 @@ public interface SlotRepository extends JpaRepository<Slot, UUID>, JpaSpecificat
   List<Slot> findAllForExport();
 
   Page<Slot> findAll(Pageable pageable);
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query(
+      """
+          SELECT s
+          FROM Slot s
+          JOIN FETCH s.parking p
+          JOIN FETCH s.zone z
+          LEFT JOIN FETCH z.vehicleType vt
+          WHERE s.tenant.id = :tenantId
+            AND p.id = :parkingId
+            AND s.status = :status
+            AND s.isDeleted = false
+            AND z.isDeleted = false
+          ORDER BY LOWER(COALESCE(z.name, '')), LOWER(z.code), LOWER(s.code)
+          """)
+  List<Slot> findFirstAvailableForCheckIn(
+      @Param("tenantId") UUID tenantId,
+      @Param("parkingId") UUID parkingId,
+      @Param("status") SlotStatus status,
+      Pageable pageable);
 
   @Modifying
   @Query(

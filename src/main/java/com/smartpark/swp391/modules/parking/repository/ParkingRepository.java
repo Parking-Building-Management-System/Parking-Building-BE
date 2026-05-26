@@ -12,4 +12,6 @@ public interface ParkingRepository extends JpaRepository<Parking, UUID> {
   List<Parking> findAllByIsDeletedFalseOrderByNameAsc();
 
   Optional<Parking> findByCodeIgnoreCaseAndIsDeletedFalse(String code);
+
+  Optional<Parking> findByIdAndTenantIdAndIsDeletedFalse(UUID id, UUID tenantId);
 }
