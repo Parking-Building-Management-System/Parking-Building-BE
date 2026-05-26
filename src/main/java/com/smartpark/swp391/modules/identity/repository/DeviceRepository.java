@@ -1,6 +1,7 @@
 package com.smartpark.swp391.modules.identity.repository;
 
 import com.smartpark.swp391.modules.identity.entity.Device;
+import com.smartpark.swp391.modules.identity.enumType.DeviceStatus;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,4 +14,6 @@ public interface DeviceRepository extends JpaRepository<Device, UUID> {
   @Query("SELECT d FROM Device d WHERE d.user.id = :userId AND d.fingerprint = :fingerprint")
   Optional<Device> findByUserIdAndFingerprint(
       @Param("userId") UUID userId, @Param("fingerprint") String fingerprint);
+
+  long countByUserIdAndStatus(UUID userId, DeviceStatus status);
 }
