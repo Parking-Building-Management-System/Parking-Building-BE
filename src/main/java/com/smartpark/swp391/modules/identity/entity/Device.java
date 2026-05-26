@@ -2,6 +2,7 @@ package com.smartpark.swp391.modules.identity.entity;
 
 import com.smartpark.swp391.infrastructure.persistence.BaseEntity;
 import com.smartpark.swp391.modules.identity.enumType.DeviceStatus;
+import com.smartpark.swp391.modules.operation.entity.Kiosk;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -55,4 +56,8 @@ public class Device extends BaseEntity {
 
   @Column(name = "expires_at")
   private LocalDateTime expiresAt;
+
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "kiosk_id")
+  private Kiosk kiosk;
 }

@@ -4,7 +4,9 @@ import com.smartpark.swp391.common.exception.ErrorCode;
 import com.smartpark.swp391.common.response.ApiResponse;
 import com.smartpark.swp391.modules.manager.dto.facility.FloorRequest;
 import com.smartpark.swp391.modules.manager.dto.facility.FloorResponse;
+import com.smartpark.swp391.modules.manager.dto.facility.ParkingRequest;
 import com.smartpark.swp391.modules.manager.dto.facility.ParkingResponse;
+import com.smartpark.swp391.modules.manager.dto.facility.ParkingStatusRequest;
 import com.smartpark.swp391.modules.manager.dto.facility.ParkingStatusResponse;
 import com.smartpark.swp391.modules.manager.dto.facility.ZoneRequest;
 import com.smartpark.swp391.modules.manager.dto.facility.ZoneResponse;
@@ -67,15 +69,47 @@ public class ManagerFacilityController {
         "/manager/parkings", managerTenantContext.call(jwt, managerFacilityService::getParkings));
   }
 
-  @PatchMapping("/parkings/{id}/status")
-  @Operation(
-      summary = "Toggle parking status",
-      description = "Toggles a tenant parking between ACTIVE and MAINTENANCE.")
-  public ResponseEntity<ApiResponse<ParkingStatusResponse>> toggleParkingStatus(
+  @PostMapping("/parkings")
+  @Operation(summary = "Create parking", description = "Creates a parking under current tenant.")
+  public ResponseEntity<ApiResponse<ParkingResponse>> createParking(
+      @Valid @RequestBody ParkingRequest request, @AuthenticationPrincipal Jwt jwt) {
+    return ok(
+        "/manager/parkings",
+        managerTenantContext.call(jwt, () -> managerFacilityService.createParking(request)));
+  }
+
+  @GetMapping("/parkings/{id}")
+  @Operation(summary = "Get parking", description = "Gets one tenant parking by id.")
+  public ResponseEntity<ApiResponse<ParkingResponse>> getParking(
       @PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
     return ok(
+        "/manager/parkings/" + id,
+        managerTenantContext.call(jwt, () -> managerFacilityService.getParking(id)));
+  }
+
+  @PutMapping("/parkings/{id}")
+  @Operation(summary = "Update parking", description = "Updates one tenant parking by id.")
+  public ResponseEntity<ApiResponse<ParkingResponse>> updateParking(
+      @PathVariable UUID id,
+      @Valid @RequestBody ParkingRequest request,
+      @AuthenticationPrincipal Jwt jwt) {
+    return ok(
+        "/manager/parkings/" + id,
+        managerTenantContext.call(jwt, () -> managerFacilityService.updateParking(id, request)));
+  }
+
+  @PatchMapping("/parkings/{id}/status")
+  @Operation(
+      summary = "Update parking status",
+      description = "Updates a tenant parking status to ACTIVE, INACTIVE, or MAINTENANCE.")
+  public ResponseEntity<ApiResponse<ParkingStatusResponse>> updateParkingStatus(
+      @PathVariable UUID id,
+      @Valid @RequestBody(required = false) ParkingStatusRequest request,
+      @AuthenticationPrincipal Jwt jwt) {
+    return ok(
         "/manager/parkings/" + id + "/status",
-        managerTenantContext.call(jwt, () -> managerFacilityService.toggleParkingStatus(id)));
+        managerTenantContext.call(
+            jwt, () -> managerFacilityService.updateParkingStatus(id, request)));
   }
 
   @GetMapping("/parkings/{id}/topology")

@@ -87,4 +87,22 @@ public interface SessionRepository extends JpaRepository<Session, UUID> {
                 WHERE s.user.tenant.id = :tenantId AND s.revokedAt IS NULL AND s.expiredAt > :now
             """)
   int revokeAllActiveByTenantId(@Param("tenantId") UUID tenantId, @Param("now") LocalDateTime now);
+
+  @Query(
+      """
+          SELECT s
+          FROM Session s
+          JOIN FETCH s.device d
+          JOIN FETCH d.user
+          LEFT JOIN FETCH d.kiosk k
+          LEFT JOIN FETCH k.parking
+          WHERE s.id = :sessionId
+            AND s.user.id = :userId
+            AND s.revokedAt IS NULL
+            AND s.expiredAt > :now
+          """)
+  java.util.Optional<Session> findActiveByIdAndUserIdWithDevice(
+      @Param("sessionId") UUID sessionId,
+      @Param("userId") UUID userId,
+      @Param("now") LocalDateTime now);
 }

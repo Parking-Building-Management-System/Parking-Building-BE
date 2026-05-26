@@ -10,7 +10,9 @@ import com.smartpark.swp391.modules.identity.repository.TenantRepository;
 import com.smartpark.swp391.modules.manager.dto.slot.SlotBulkStatusRequest;
 import com.smartpark.swp391.modules.manager.dto.slot.SlotBulkStatusResponse;
 import com.smartpark.swp391.modules.manager.dto.slot.SlotImportResponse;
+import com.smartpark.swp391.modules.manager.dto.slot.SlotRequest;
 import com.smartpark.swp391.modules.manager.dto.slot.SlotResponse;
+import com.smartpark.swp391.modules.manager.dto.slot.SlotStatusRequest;
 import com.smartpark.swp391.modules.manager.service.ManagerSlotService;
 import com.smartpark.swp391.modules.parking.entity.Floor;
 import com.smartpark.swp391.modules.parking.entity.Parking;
@@ -79,6 +81,78 @@ public class ManagerSlotServiceImpl implements ManagerSlotService {
         result.getSize(),
         result.getTotalElements(),
         result.getTotalPages());
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public SlotResponse getSlot(UUID id) {
+    return toSlotResponse(getSlotOrThrow(id));
+  }
+
+  @Override
+  @Transactional
+  public SlotResponse createSlot(UUID zoneId, SlotRequest request) {
+    Zone zone = getZoneOrThrow(zoneId);
+    String code = normalizeCode(request.code());
+    if (slotRepository.existsByZoneIdAndCodeIgnoreCaseAndIsDeletedFalse(zoneId, code)) {
+      throw new ApiException(ErrorCode.DUPLICATE_RESOURCE, "Slot code already exists");
+    }
+
+    Slot slot =
+        Slot.builder()
+            .tenant(currentTenantReference())
+            .parking(zone.getParking())
+            .floor(zone.getFloor())
+            .zone(zone)
+            .code(code)
+            .slotNumber(normalizeSlotNumber(request.slotNumber(), code))
+            .status(request.status() == null ? SlotStatus.AVAILABLE : request.status())
+            .isDeleted(false)
+            .build();
+
+    Slot saved = slotRepository.save(slot);
+    evictTopology(saved.getParking().getId());
+    return toSlotResponse(saved);
+  }
+
+  @Override
+  @Transactional
+  public SlotResponse updateSlot(UUID id, SlotRequest request) {
+    Slot slot = getSlotOrThrow(id);
+    String code = normalizeCode(request.code());
+    if (slotRepository.existsByZoneIdAndCodeIgnoreCaseAndIdNotAndIsDeletedFalse(
+        slot.getZone().getId(), code, id)) {
+      throw new ApiException(ErrorCode.DUPLICATE_RESOURCE, "Slot code already exists");
+    }
+
+    slot.setCode(code);
+    slot.setSlotNumber(normalizeSlotNumber(request.slotNumber(), code));
+    if (request.status() != null) {
+      slot.setStatus(request.status());
+    }
+
+    Slot saved = slotRepository.save(slot);
+    evictTopology(saved.getParking().getId());
+    return toSlotResponse(saved);
+  }
+
+  @Override
+  @Transactional
+  public void deleteSlot(UUID id) {
+    Slot slot = getSlotOrThrow(id);
+    slot.setDeleted(true);
+    slotRepository.save(slot);
+    evictTopology(slot.getParking().getId());
+  }
+
+  @Override
+  @Transactional
+  public SlotResponse updateSlotStatus(UUID id, SlotStatusRequest request) {
+    Slot slot = getSlotOrThrow(id);
+    slot.setStatus(request.status());
+    Slot saved = slotRepository.save(slot);
+    evictTopology(saved.getParking().getId());
+    return toSlotResponse(saved);
   }
 
   @Override
@@ -154,7 +228,7 @@ public class ManagerSlotServiceImpl implements ManagerSlotService {
   @Override
   @Transactional(readOnly = true)
   public byte[] exportSlots() {
-    List<Slot> slots = slotRepository.findAllForExport();
+    List<Slot> slots = slotRepository.findAllForExport(currentTenantId());
 
     try (Workbook workbook = new XSSFWorkbook();
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
@@ -195,6 +269,7 @@ public class ManagerSlotServiceImpl implements ManagerSlotService {
       UUID zoneId, SlotStatus status, String slotCode, boolean exact) {
     return (root, query, criteriaBuilder) -> {
       List<Predicate> predicates = new ArrayList<>();
+      predicates.add(criteriaBuilder.equal(root.get("tenant").get("id"), currentTenantId()));
       predicates.add(criteriaBuilder.isFalse(root.get("isDeleted")));
 
       if (zoneId != null) {
@@ -370,6 +445,18 @@ public class ManagerSlotServiceImpl implements ManagerSlotService {
         .build();
   }
 
+  private Slot getSlotOrThrow(UUID id) {
+    return slotRepository
+        .findByIdAndTenantIdAndIsDeletedFalse(id, currentTenantId())
+        .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Slot not found"));
+  }
+
+  private Zone getZoneOrThrow(UUID id) {
+    return zoneRepository
+        .findByIdAndTenantIdAndIsDeletedFalse(id, currentTenantId())
+        .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Zone not found"));
+  }
+
   private Tenant currentTenantReference() {
     return tenantRepository.getReferenceById(currentTenantId());
   }
@@ -381,6 +468,20 @@ public class ManagerSlotServiceImpl implements ManagerSlotService {
 
   private void evictTopology(UUID parkingId) {
     managerFacilityCacheService.evictTopology(currentTenantId(), parkingId);
+  }
+
+  private String normalizeCode(String code) {
+    if (code == null || code.isBlank()) {
+      throw new ApiException(ErrorCode.INVALID_INPUT, "Code must not be blank");
+    }
+    return code.trim();
+  }
+
+  private String normalizeSlotNumber(String slotNumber, String fallbackCode) {
+    if (slotNumber == null || slotNumber.isBlank()) {
+      return fallbackCode;
+    }
+    return slotNumber.trim();
   }
 
   private final class ImportLookup {

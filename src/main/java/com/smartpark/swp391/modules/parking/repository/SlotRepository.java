@@ -10,16 +10,28 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import jakarta.persistence.LockModeType;
+
 public interface SlotRepository extends JpaRepository<Slot, UUID>, JpaSpecificationExecutor<Slot> {
   long countByParkingIdAndIsDeletedFalse(UUID parkingId);
+
+  long countByTenantIdAndIsDeletedFalse(UUID tenantId);
 
   long countByZoneIdAndIsDeletedFalse(UUID zoneId);
 
   Optional<Slot> findByZoneIdAndCodeIgnoreCaseAndIsDeletedFalse(UUID zoneId, String code);
+
+  Optional<Slot> findByIdAndTenantIdAndIsDeletedFalse(UUID id, UUID tenantId);
+
+  boolean existsByZoneIdAndCodeIgnoreCaseAndIsDeletedFalse(UUID zoneId, String code);
+
+  boolean existsByZoneIdAndCodeIgnoreCaseAndIdNotAndIsDeletedFalse(
+      UUID zoneId, String code, UUID id);
 
   @Query(
       """
@@ -28,12 +40,34 @@ public interface SlotRepository extends JpaRepository<Slot, UUID>, JpaSpecificat
           JOIN FETCH s.parking p
           JOIN FETCH s.zone z
           LEFT JOIN FETCH s.floor f
-          WHERE s.isDeleted = false
+          WHERE s.tenant.id = :tenantId
+            AND s.isDeleted = false
           ORDER BY p.name ASC, z.name ASC, s.code ASC
           """)
-  List<Slot> findAllForExport();
+  List<Slot> findAllForExport(@Param("tenantId") UUID tenantId);
 
   Page<Slot> findAll(Pageable pageable);
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query(
+      """
+          SELECT s
+          FROM Slot s
+          JOIN FETCH s.parking p
+          JOIN FETCH s.zone z
+          LEFT JOIN FETCH z.vehicleType vt
+          WHERE s.tenant.id = :tenantId
+            AND p.id = :parkingId
+            AND s.status = :status
+            AND s.isDeleted = false
+            AND z.isDeleted = false
+          ORDER BY LOWER(COALESCE(z.name, '')), LOWER(z.code), LOWER(s.code)
+          """)
+  List<Slot> findFirstAvailableForCheckIn(
+      @Param("tenantId") UUID tenantId,
+      @Param("parkingId") UUID parkingId,
+      @Param("status") SlotStatus status,
+      Pageable pageable);
 
   @Modifying
   @Query(
