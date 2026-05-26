@@ -16,6 +16,7 @@ import com.smartpark.swp391.modules.identity.enumType.DeviceStatus;
 import com.smartpark.swp391.modules.identity.enumType.TenantStatus;
 import com.smartpark.swp391.modules.identity.enumType.UserStatus;
 import com.smartpark.swp391.modules.identity.repository.DeviceRepository;
+import com.smartpark.swp391.modules.identity.repository.RoleRepository;
 import com.smartpark.swp391.modules.identity.repository.SessionRepository;
 import com.smartpark.swp391.modules.identity.repository.UserRepository;
 import com.smartpark.swp391.modules.identity.service.auth.AuthenticationService;
@@ -25,6 +26,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -57,6 +59,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
   UserRepository userRepository;
   SessionRepository sessionRepository;
   DeviceRepository deviceRepository;
+  RoleRepository roleRepository;
   PasswordEncoder passwordEncoder;
   TokenService tokenService;
   SessionService sessionService;
@@ -76,37 +79,20 @@ public class AuthenticationServiceImpl implements AuthenticationService {
       throw new ApiException(ErrorCode.INVALID_INFO);
     }
 
-    if (user.getStatus() != UserStatus.ACTIVE
-        || user.getTenant().getStatus() != TenantStatus.ACTIVE) {
+    if (user.getStatus() != UserStatus.ACTIVE) {
+      throw new ApiException(ErrorCode.FORBIDDEN_ACTION);
+    }
+
+    List<String> roles = roleRepository.findRoleNamesByUserId(user.getId());
+    boolean systemAdmin = roles.contains("SYSTEM_ADMIN");
+    boolean parkingManager = roles.contains("PARKING_MANAGER");
+
+    if (!systemAdmin && user.getTenant().getStatus() != TenantStatus.ACTIVE) {
       throw new ApiException(ErrorCode.FORBIDDEN_ACTION);
     }
 
     // 3. Device Check
-    Device device =
-        deviceRepository
-            .findByUserIdAndFingerprint(user.getId(), request.deviceFingerprint())
-            .orElse(null);
-
-    if (device == null) {
-      // Máy lạ hoắc -> Lưu xuống DB với trạng thái PENDING chờ duyệt
-      Device newDevice =
-          Device.builder()
-              .user(user)
-              .fingerprint(request.deviceFingerprint())
-              .label(request.deviceLabel())
-              .status(DeviceStatus.PENDING)
-              .build();
-      deviceRepository.save(newDevice);
-      throw new ApiException(ErrorCode.DEVICE_NOT_TRUST);
-    }
-
-    if (device.getStatus() == DeviceStatus.SUSPENDED) {
-      throw new ApiException(ErrorCode.FORBIDDEN_ACTION);
-    }
-
-    if (device.getStatus() != DeviceStatus.APPROVED) {
-      throw new ApiException(ErrorCode.DEVICE_NOT_TRUST);
-    }
+    Device device = resolveLoginDevice(user, request, systemAdmin, parkingManager);
 
     // 4. Info hợp lệ --> tạo session
     Session session = sessionService.createSession(user, device);
@@ -122,6 +108,99 @@ public class AuthenticationServiceImpl implements AuthenticationService {
             .build();
 
     return tokenService.generateTokenPair(tokenRequest);
+  }
+
+  private Device resolveLoginDevice(
+      User user, AuthenticationRequest request, boolean systemAdmin, boolean parkingManager) {
+    Device device =
+        deviceRepository
+            .findByUserIdAndFingerprint(user.getId(), request.deviceFingerprint())
+            .orElse(null);
+
+    if (systemAdmin) {
+      return device == null ? createApprovedDevice(user, request) : device;
+    }
+
+    if (parkingManager) {
+      return resolveManagerDevice(user, request, device);
+    }
+
+    if (device == null) {
+      // Máy lạ hoắc -> Lưu xuống DB với trạng thái PENDING chờ duyệt
+      Device newDevice =
+          Device.builder()
+              .user(user)
+              .fingerprint(request.deviceFingerprint())
+              .label(request.deviceLabel())
+              .status(DeviceStatus.PENDING)
+              .build();
+      deviceRepository.save(newDevice);
+      throw new ApiException(ErrorCode.DEVICE_NOT_TRUST);
+    }
+
+    ensureApprovedDevice(device);
+    return device;
+  }
+
+  private Device resolveManagerDevice(
+      User user, AuthenticationRequest request, Device existingDevice) {
+    if (existingDevice != null && existingDevice.getStatus() == DeviceStatus.APPROVED) {
+      return existingDevice;
+    }
+
+    long approvedDeviceCount =
+        deviceRepository.countByUserIdAndStatus(user.getId(), DeviceStatus.APPROVED);
+
+    if (approvedDeviceCount == 0) {
+      if (existingDevice == null) {
+        return createApprovedDevice(user, request);
+      }
+
+      existingDevice.setStatus(DeviceStatus.APPROVED);
+      existingDevice.setLabel(request.deviceLabel());
+      existingDevice.setApprovedBy(user.getId());
+      existingDevice.setApprovedAt(LocalDateTime.now());
+      existingDevice.setExpiresAt(null);
+      return deviceRepository.save(existingDevice);
+    }
+
+    if (existingDevice == null) {
+      Device pendingDevice =
+          Device.builder()
+              .user(user)
+              .fingerprint(request.deviceFingerprint())
+              .label(request.deviceLabel())
+              .status(DeviceStatus.PENDING)
+              .build();
+      deviceRepository.save(pendingDevice);
+    }
+
+    if (existingDevice != null && existingDevice.getStatus() == DeviceStatus.SUSPENDED) {
+      throw new ApiException(ErrorCode.FORBIDDEN_ACTION);
+    }
+    throw new ApiException(ErrorCode.DEVICE_NOT_TRUST);
+  }
+
+  private Device createApprovedDevice(User user, AuthenticationRequest request) {
+    Device device =
+        Device.builder()
+            .user(user)
+            .fingerprint(request.deviceFingerprint())
+            .label(request.deviceLabel())
+            .status(DeviceStatus.APPROVED)
+            .approvedBy(user.getId())
+            .approvedAt(LocalDateTime.now())
+            .build();
+    return deviceRepository.save(device);
+  }
+
+  private void ensureApprovedDevice(Device device) {
+    if (device.getStatus() == DeviceStatus.SUSPENDED) {
+      throw new ApiException(ErrorCode.FORBIDDEN_ACTION);
+    }
+    if (device.getStatus() != DeviceStatus.APPROVED) {
+      throw new ApiException(ErrorCode.DEVICE_NOT_TRUST);
+    }
   }
 
   @Override
