@@ -13,6 +13,8 @@ public interface ZoneRepository extends JpaRepository<Zone, UUID> {
 
   long countByFloorIdAndIsDeletedFalse(UUID floorId);
 
+  Optional<Zone> findByIdAndTenantIdAndIsDeletedFalse(UUID id, UUID tenantId);
+
   Optional<Zone> findByFloorIdAndCodeIgnoreCaseAndIsDeletedFalse(UUID floorId, String code);
 
   boolean existsByFloorIdAndCodeIgnoreCaseAndIsDeletedFalse(UUID floorId, String code);

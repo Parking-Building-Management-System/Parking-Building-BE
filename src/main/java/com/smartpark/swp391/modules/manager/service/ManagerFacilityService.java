@@ -2,7 +2,9 @@ package com.smartpark.swp391.modules.manager.service;
 
 import com.smartpark.swp391.modules.manager.dto.facility.FloorRequest;
 import com.smartpark.swp391.modules.manager.dto.facility.FloorResponse;
+import com.smartpark.swp391.modules.manager.dto.facility.ParkingRequest;
 import com.smartpark.swp391.modules.manager.dto.facility.ParkingResponse;
+import com.smartpark.swp391.modules.manager.dto.facility.ParkingStatusRequest;
 import com.smartpark.swp391.modules.manager.dto.facility.ParkingStatusResponse;
 import com.smartpark.swp391.modules.manager.dto.facility.ZoneRequest;
 import com.smartpark.swp391.modules.manager.dto.facility.ZoneResponse;
@@ -13,7 +15,13 @@ import java.util.UUID;
 public interface ManagerFacilityService {
   List<ParkingResponse> getParkings();
 
-  ParkingStatusResponse toggleParkingStatus(UUID id);
+  ParkingResponse getParking(UUID id);
+
+  ParkingResponse createParking(ParkingRequest request);
+
+  ParkingResponse updateParking(UUID id, ParkingRequest request);
+
+  ParkingStatusResponse updateParkingStatus(UUID id, ParkingStatusRequest request);
 
   ParkingTopologyResponse getTopology(UUID parkingId);
 

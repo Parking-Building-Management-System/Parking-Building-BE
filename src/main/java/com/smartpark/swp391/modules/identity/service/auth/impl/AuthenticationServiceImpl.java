@@ -22,6 +22,10 @@ import com.smartpark.swp391.modules.identity.repository.UserRepository;
 import com.smartpark.swp391.modules.identity.service.auth.AuthenticationService;
 import com.smartpark.swp391.modules.identity.service.auth.SessionService;
 import com.smartpark.swp391.modules.identity.service.token.TokenService;
+import com.smartpark.swp391.modules.operation.entity.Kiosk;
+import com.smartpark.swp391.modules.operation.enumType.KioskStatus;
+import com.smartpark.swp391.modules.operation.repository.KioskStaffRepository;
+import com.smartpark.swp391.modules.staff.service.StaffWorkContextService;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -64,9 +68,11 @@ public class AuthenticationServiceImpl implements AuthenticationService {
   TokenService tokenService;
   SessionService sessionService;
   SessionAuthorityResolver sessionAuthorityResolver;
+  StaffWorkContextService staffWorkContextService;
+  KioskStaffRepository kioskStaffRepository;
 
   @Override
-  @Transactional
+  @Transactional(noRollbackFor = ApiException.class)
   public TokenPair authenticate(AuthenticationRequest request) {
     // 1. Check Username
     User user =
@@ -86,6 +92,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     List<String> roles = roleRepository.findRoleNamesByUserId(user.getId());
     boolean systemAdmin = roles.contains("SYSTEM_ADMIN");
     boolean parkingManager = roles.contains("PARKING_MANAGER");
+    boolean staff = roles.contains("STAFF");
 
     if (!systemAdmin && user.getTenant().getStatus() != TenantStatus.ACTIVE) {
       throw new ApiException(ErrorCode.FORBIDDEN_ACTION);
@@ -93,6 +100,9 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
     // 3. Device Check
     Device device = resolveLoginDevice(user, request, systemAdmin, parkingManager);
+    if (staff) {
+      ensureStaffDeviceWorkContext(user, device);
+    }
 
     // 4. Info hợp lệ --> tạo session
     Session session = sessionService.createSession(user, device);
@@ -203,6 +213,26 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     }
   }
 
+  private void ensureStaffDeviceWorkContext(User user, Device device) {
+    Kiosk kiosk = device.getKiosk();
+    if (kiosk == null) {
+      throw new ApiException(ErrorCode.DEVICE_NOT_TRUST, "KIOSK_CONTEXT_REQUIRED");
+    }
+    if (device.getExpiresAt() != null && device.getExpiresAt().isBefore(LocalDateTime.now())) {
+      throw new ApiException(ErrorCode.DEVICE_NOT_TRUST);
+    }
+    if (kiosk.getStatus() != KioskStatus.ACTIVE) {
+      throw new ApiException(ErrorCode.FORBIDDEN_ACTION, "Kiosk is not active");
+    }
+    if (!user.getTenant().getId().equals(kiosk.getTenant().getId())) {
+      throw new ApiException(ErrorCode.FORBIDDEN_ACTION);
+    }
+    if (!kioskStaffRepository.existsActiveAssignment(
+        user.getTenant().getId(), kiosk.getId(), user.getId())) {
+      throw new ApiException(ErrorCode.FORBIDDEN_ACTION, "STAFF_NOT_ASSIGNED_TO_KIOSK");
+    }
+  }
+
   @Override
   @Transactional
   public TokenPair refresh(String refreshToken) {
@@ -307,6 +337,10 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         .phone(user.getPhone())
         .roles(authzCache.roles())
         .permissions(authzCache.permissions())
+        .workContext(
+            authzCache.roles().contains("STAFF")
+                ? staffWorkContextService.resolveContext(sessionId, userId, tenantId).orElse(null)
+                : null)
         .build();
   }
 }

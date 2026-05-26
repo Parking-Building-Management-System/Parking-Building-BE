@@ -20,9 +20,18 @@ import jakarta.persistence.LockModeType;
 public interface SlotRepository extends JpaRepository<Slot, UUID>, JpaSpecificationExecutor<Slot> {
   long countByParkingIdAndIsDeletedFalse(UUID parkingId);
 
+  long countByTenantIdAndIsDeletedFalse(UUID tenantId);
+
   long countByZoneIdAndIsDeletedFalse(UUID zoneId);
 
   Optional<Slot> findByZoneIdAndCodeIgnoreCaseAndIsDeletedFalse(UUID zoneId, String code);
+
+  Optional<Slot> findByIdAndTenantIdAndIsDeletedFalse(UUID id, UUID tenantId);
+
+  boolean existsByZoneIdAndCodeIgnoreCaseAndIsDeletedFalse(UUID zoneId, String code);
+
+  boolean existsByZoneIdAndCodeIgnoreCaseAndIdNotAndIsDeletedFalse(
+      UUID zoneId, String code, UUID id);
 
   @Query(
       """
@@ -31,10 +40,11 @@ public interface SlotRepository extends JpaRepository<Slot, UUID>, JpaSpecificat
           JOIN FETCH s.parking p
           JOIN FETCH s.zone z
           LEFT JOIN FETCH s.floor f
-          WHERE s.isDeleted = false
+          WHERE s.tenant.id = :tenantId
+            AND s.isDeleted = false
           ORDER BY p.name ASC, z.name ASC, s.code ASC
           """)
-  List<Slot> findAllForExport();
+  List<Slot> findAllForExport(@Param("tenantId") UUID tenantId);
 
   Page<Slot> findAll(Pageable pageable);
 

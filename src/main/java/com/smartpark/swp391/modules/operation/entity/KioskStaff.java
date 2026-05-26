@@ -36,7 +36,7 @@ public class KioskStaff extends TenantScopedEntity {
   private User staffUser;
 
   @ManyToOne(fetch = FetchType.LAZY)
-  @JoinColumn(name = "shift_id", nullable = false)
+  @JoinColumn(name = "shift_id")
   private Shift shift;
 
   @Column(name = "assigned_at", nullable = false)

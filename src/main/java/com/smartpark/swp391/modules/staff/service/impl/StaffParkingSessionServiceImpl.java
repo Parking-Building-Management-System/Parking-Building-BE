@@ -19,7 +19,9 @@ import com.smartpark.swp391.modules.parking.repository.RfidCardRepository;
 import com.smartpark.swp391.modules.parking.repository.SlotRepository;
 import com.smartpark.swp391.modules.staff.dto.ParkingSessionCheckInRequest;
 import com.smartpark.swp391.modules.staff.dto.ParkingSessionCheckInResponse;
+import com.smartpark.swp391.modules.staff.dto.StaffWorkContextResponse;
 import com.smartpark.swp391.modules.staff.service.StaffParkingSessionService;
+import com.smartpark.swp391.modules.staff.service.StaffWorkContextService;
 import com.smartpark.swp391.modules.vehicle.entity.VehicleType;
 import com.smartpark.swp391.modules.vehicle.repository.VehicleTypeRepository;
 import java.time.LocalDateTime;
@@ -42,15 +44,17 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
   SlotRepository slotRepository;
   VehicleTypeRepository vehicleTypeRepository;
   TenantRepository tenantRepository;
+  StaffWorkContextService staffWorkContextService;
 
   @Override
   @Transactional
   public ParkingSessionCheckInResponse checkIn(ParkingSessionCheckInRequest request) {
     UUID tenantId = currentTenantId();
+    UUID parkingId = resolveParkingId(request);
     Tenant tenant = tenantRepository.getReferenceById(tenantId);
     Parking parking =
         parkingRepository
-            .findByIdAndTenantIdAndIsDeletedFalse(request.parkingId(), tenantId)
+            .findByIdAndTenantIdAndIsDeletedFalse(parkingId, tenantId)
             .orElseThrow(
                 () -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Parking not found"));
 
@@ -145,6 +149,14 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
   private UUID currentTenantId() {
     return TenantContext.getTenantId()
         .orElseThrow(() -> new ApiException(ErrorCode.UNAUTHENTICATED));
+  }
+
+  private UUID resolveParkingId(ParkingSessionCheckInRequest request) {
+    if (request.parkingId() != null) {
+      return request.parkingId();
+    }
+    StaffWorkContextResponse workContext = staffWorkContextService.requireCurrentContext();
+    return workContext.parkingId();
   }
 
   private String normalizePlate(String plateNumber) {

@@ -1,91 +1,127 @@
 # Tenant Onboarding Device Policy
 
-## Scope
+## Tenant Creation
 
-This snapshot documents the current behavior for:
+`POST /admin/tenants` creates:
 
-- `POST /admin/tenants`
-- `POST /auth/login`
+- one `tenants` row with `status = ACTIVE`
+- one first manager `users` row under that tenant
+- one `user_roles` row assigning `PARKING_MANAGER`
 
-## Tenant Provisioning
+It does not create any `devices` row for the manager. The manager device is bootstrapped by
+`POST /auth/login`.
 
-Endpoint:
+## Login Decision Tree
 
-```http
-POST /admin/tenants
+`POST /auth/login` keeps the existing request contract:
+
+```json
+{
+  "username": "manager@example.com",
+  "password": "Password@123",
+  "deviceFingerprint": "browser-or-device-fingerprint",
+  "deviceLabel": "Manager laptop"
+}
 ```
 
-Behavior:
+Decision order:
 
-- Creates a tenant.
-- Creates the first `PARKING_MANAGER` account.
-- Assigns the `PARKING_MANAGER` role.
-- Does not create or bind a manager device during provisioning.
+1. Verify username.
+2. Verify password.
+3. Reject inactive users.
+4. Load roles.
+5. If user is not `SYSTEM_ADMIN`, reject when tenant status is not `ACTIVE`.
+6. Apply role device policy.
 
-The manager device is bound during the manager's first successful login.
+Role policy:
 
-Implementation:
+- `SYSTEM_ADMIN`: device trust does not block login. A submitted fingerprint may be stored as an
+  approved device because `sessions.device_id` is currently required.
+- `PARKING_MANAGER`: approved matching fingerprint succeeds. If the manager has zero approved
+  devices, the submitted fingerprint is created or promoted to `APPROVED` and login succeeds. If
+  the manager already has an approved device, a new fingerprint is saved as `PENDING` and login is
+  rejected with the existing `DEVICE_NOT_TRUST` behavior.
+- `STAFF`: strict binding. Unknown fingerprints become `PENDING`; login is rejected. Staff devices
+  are never auto-approved by login.
 
-```text
-src/main/java/com/smartpark/swp391/modules/admin/service/impl/AdminTenantManagementServiceImpl.java
+## Expected DB Rows
+
+Before manager first login:
+
+- `tenants`: 1 new active tenant
+- `users`: 1 active manager for that tenant
+- `user_roles`: manager has `PARKING_MANAGER`
+- `devices`: 0 rows for that manager
+- `sessions`: 0 rows for that manager
+
+After manager first login:
+
+- `devices`: 1 row for manager and submitted fingerprint with `status = APPROVED`
+- `devices.approved_by`: manager user id
+- `devices.approved_at`: non-null
+- `sessions`: 1 active row referencing that approved device
+
+After manager login from a new fingerprint:
+
+- login rejected with `DEVICE_NOT_TRUST`
+- new device row is `PENDING` if it did not already exist
+- no successful session is created for that rejected login
+
+## Manual SQL Validation
+
+Find tenant and first manager:
+
+```sql
+SELECT t.id AS tenant_id, t.slug, t.status, u.id AS manager_id, u.username, u.status
+FROM tenants t
+JOIN users u ON u.tenant_id = t.id
+JOIN user_roles ur ON ur.user_id = u.id
+JOIN roles r ON r.id = ur.role_id
+WHERE t.slug = '<tenant-slug>'
+  AND r.name = 'PARKING_MANAGER';
 ```
 
-## Login Device Policy
+Confirm no manager device exists after provisioning:
 
-Endpoint:
-
-```http
-POST /auth/login
+```sql
+SELECT d.*
+FROM devices d
+WHERE d.user_id = '<manager-id>';
 ```
 
-Implementation:
+Confirm first-login bootstrap:
 
-```text
-src/main/java/com/smartpark/swp391/modules/identity/service/auth/impl/AuthenticationServiceImpl.java
-src/main/java/com/smartpark/swp391/modules/identity/repository/DeviceRepository.java
+```sql
+SELECT d.user_id, d.fingerprint, d.label, d.status, d.approved_by, d.approved_at
+FROM devices d
+WHERE d.user_id = '<manager-id>'
+ORDER BY d.created_at;
 ```
 
-Login always verifies username and password first.
+Confirm session references the approved device:
 
-### SYSTEM_ADMIN
-
-- Device trust does not block login.
-- If no device row exists for the submitted fingerprint, backend creates an approved device row so the existing `sessions.device_id` NOT NULL schema can still create a session.
-- Tenant suspension does not block `SYSTEM_ADMIN` login.
-
-### PARKING_MANAGER
-
-- If the submitted fingerprint matches an approved device, login succeeds.
-- If the manager has zero approved devices, backend approves the submitted fingerprint and login succeeds.
-- If the manager already has at least one approved device and submits a new fingerprint, backend creates/keeps a pending device and returns `DEVICE_NOT_TRUST`.
-- Suspended devices remain forbidden.
-
-### STAFF
-
-- Strict device binding remains.
-- Unknown fingerprints are saved as `PENDING` and login is blocked with `DEVICE_NOT_TRUST`.
-- Staff devices are never auto-approved.
-- Only `APPROVED` staff devices can login.
-
-## Tenant Status Rule
-
-Non-admin users cannot login when their tenant is not `ACTIVE`.
-
-`SYSTEM_ADMIN` is exempt from tenant status blocking so global administration remains possible.
-
-## Verification
-
-Run:
-
-```bash
-./mvnw test
-./mvnw spring-boot:run
+```sql
+SELECT s.id, s.user_id, s.device_id, d.status, s.revoked_at, s.expired_at
+FROM sessions s
+JOIN devices d ON d.id = s.device_id
+WHERE s.user_id = '<manager-id>'
+ORDER BY s.created_at DESC;
 ```
 
-Manual checks:
+Confirm suspended tenant blocks non-admin login:
 
-- Provision a new tenant via `/admin/tenants`.
-- Confirm no device is inserted for the new manager at provisioning time.
-- Login as that manager with a new `deviceFingerprint`; the first login succeeds and creates an `APPROVED` device.
-- Login again as that manager from another new fingerprint; login is blocked and device is `PENDING`.
-- Login as staff from a new fingerprint; login is blocked and device is `PENDING`.
+```sql
+SELECT t.id, t.slug, t.status, u.username
+FROM tenants t
+JOIN users u ON u.tenant_id = t.id
+WHERE t.slug = '<tenant-slug>';
+```
+
+## Known Limitations
+
+- `sessions.device_id` is non-null, so even `SYSTEM_ADMIN` logins still need a device row for the
+  submitted fingerprint.
+- There is no separate manager device approval workflow yet.
+- Existing pending manager devices can be promoted on first login only when the manager still has
+  zero approved devices.
+- Staff kiosk binding is intentionally unchanged.
