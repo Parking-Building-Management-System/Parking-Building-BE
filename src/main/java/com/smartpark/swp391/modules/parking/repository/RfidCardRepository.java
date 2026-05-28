@@ -14,9 +14,14 @@ public interface RfidCardRepository extends JpaRepository<RfidCard, UUID> {
 
   Optional<RfidCard> findByIdAndTenantId(UUID id, UUID tenantId);
 
+  Optional<RfidCard> findByQrToken(String qrToken);
+
   Page<RfidCard> findAllByTenantId(UUID tenantId, Pageable pageable);
 
-  Page<RfidCard> findAllByTenantIdAndStatus(UUID tenantId, RfidCardStatus status, Pageable pageable);
+  Page<RfidCard> findAllByTenantIdAndStatus(
+      UUID tenantId, RfidCardStatus status, Pageable pageable);
 
   long countByTenantIdAndCodeIgnoreCase(UUID tenantId, String code);
+
+  boolean existsByQrToken(String qrToken);
 }

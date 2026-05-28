@@ -5,6 +5,8 @@ import com.smartpark.swp391.modules.identity.enumType.DeviceStatus;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -19,7 +21,8 @@ public interface DeviceRepository extends JpaRepository<Device, UUID> {
   long countByUserIdAndStatus(UUID userId, DeviceStatus status);
 
   @Query(
-      """
+      value =
+          """
           SELECT d
           FROM Device d
           JOIN FETCH d.user u
@@ -34,7 +37,8 @@ public interface DeviceRepository extends JpaRepository<Device, UUID> {
       @Param("tenantId") UUID tenantId, @Param("status") DeviceStatus status);
 
   @Query(
-      """
+      value =
+          """
           SELECT d
           FROM Device d
           JOIN FETCH d.user u
@@ -47,4 +51,29 @@ public interface DeviceRepository extends JpaRepository<Device, UUID> {
             AND r.name = 'STAFF'
           """)
   Optional<Device> findTenantDeviceById(@Param("id") UUID id, @Param("tenantId") UUID tenantId);
+
+  @Query(
+      value =
+          """
+          SELECT d
+          FROM Device d
+          JOIN FETCH d.user u
+          JOIN FETCH u.tenant t
+          LEFT JOIN FETCH d.kiosk k
+          WHERE (:tenantId IS NULL OR t.id = :tenantId)
+            AND (:status IS NULL OR d.status = :status)
+          """,
+      countQuery =
+          """
+          SELECT COUNT(d)
+          FROM Device d
+          JOIN d.user u
+          JOIN u.tenant t
+          WHERE (:tenantId IS NULL OR t.id = :tenantId)
+            AND (:status IS NULL OR d.status = :status)
+          """)
+  Page<Device> findAdminDevices(
+      @Param("tenantId") UUID tenantId,
+      @Param("status") DeviceStatus status,
+      Pageable pageable);
 }

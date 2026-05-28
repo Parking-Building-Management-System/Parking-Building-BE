@@ -45,6 +45,9 @@ public class Floor extends TenantScopedEntity {
   @Builder.Default
   private boolean active = true;
 
+  @Column(name = "map_image_url", length = 1000)
+  private String mapImageUrl;
+
   @Column(name = "is_deleted", nullable = false)
   @Builder.Default
   private boolean deleted = false;

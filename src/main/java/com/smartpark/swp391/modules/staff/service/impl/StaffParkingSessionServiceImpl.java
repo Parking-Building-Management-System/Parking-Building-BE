@@ -55,8 +55,7 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
     Parking parking =
         parkingRepository
             .findByIdAndTenantIdAndIsDeletedFalse(parkingId, tenantId)
-            .orElseThrow(
-                () -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Parking not found"));
+            .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Parking not found"));
 
     RfidCard card =
         rfidCardRepository
@@ -78,8 +77,7 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
                 tenantId, parking.getId(), SlotStatus.AVAILABLE, PageRequest.of(0, 1))
             .stream()
             .findFirst()
-            .orElseThrow(
-                () -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "No available slot"));
+            .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "No available slot"));
 
     VehicleType vehicleType = resolveVehicleType(request.vehicleTypeId(), slot);
     LocalDateTime now = LocalDateTime.now();
@@ -136,6 +134,8 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
         .sessionId(session.getId())
         .plateNumber(session.getLicensePlate())
         .cardCode(card.getCode())
+        .qrToken(card.getQrToken())
+        .pwaAccessPath("/pwa/c/" + card.getQrToken())
         .assignedSlotId(slot.getId())
         .assignedSlotCode(slot.getCode())
         .zoneId(zone.getId())

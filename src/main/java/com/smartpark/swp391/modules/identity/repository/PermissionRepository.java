@@ -2,6 +2,7 @@ package com.smartpark.swp391.modules.identity.repository;
 
 import com.smartpark.swp391.modules.identity.entity.Permission;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -17,4 +18,16 @@ public interface PermissionRepository extends JpaRepository<Permission, UUID> {
                 WHERE ur.user.id = :userId
             """)
   List<String> findPermissionNamesByUserId(@Param("userId") UUID userId);
+
+  List<Permission>
+      findAllByDeletedFalseAndStatusOrderByScopeAscModuleAscResourceAscLabelAscActionAsc(
+          String status);
+
+  Optional<Permission> findByIdAndDeletedFalse(UUID id);
+
+  boolean existsByDeletedFalseAndScopeIgnoreCaseAndModuleIgnoreCaseAndResourceIgnoreCaseAndLabelIgnoreCaseAndActionIgnoreCase(
+      String scope, String module, String resource, String label, String action);
+
+  boolean existsByDeletedFalseAndScopeIgnoreCaseAndModuleIgnoreCaseAndResourceIgnoreCaseAndLabelIgnoreCaseAndActionIgnoreCaseAndIdNot(
+      String scope, String module, String resource, String label, String action, UUID id);
 }

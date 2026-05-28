@@ -2,6 +2,7 @@ package com.smartpark.swp391.modules.parking.repository;
 
 import com.smartpark.swp391.modules.parking.entity.Slot;
 import com.smartpark.swp391.modules.parking.enumType.SlotStatus;
+import jakarta.persistence.LockModeType;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -15,14 +16,15 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import jakarta.persistence.LockModeType;
-
 public interface SlotRepository extends JpaRepository<Slot, UUID>, JpaSpecificationExecutor<Slot> {
   long countByParkingIdAndIsDeletedFalse(UUID parkingId);
 
   long countByTenantIdAndIsDeletedFalse(UUID tenantId);
 
   long countByZoneIdAndIsDeletedFalse(UUID zoneId);
+
+  List<Slot> findAllByFloorIdAndTenantIdAndIsDeletedFalseOrderByCodeAsc(
+      UUID floorId, UUID tenantId);
 
   Optional<Slot> findByZoneIdAndCodeIgnoreCaseAndIsDeletedFalse(UUID zoneId, String code);
 
@@ -45,6 +47,23 @@ public interface SlotRepository extends JpaRepository<Slot, UUID>, JpaSpecificat
           ORDER BY p.name ASC, z.name ASC, s.code ASC
           """)
   List<Slot> findAllForExport(@Param("tenantId") UUID tenantId);
+
+  @Query(
+      """
+          SELECT s
+          FROM Slot s
+          JOIN FETCH s.tenant t
+          JOIN FETCH s.parking p
+          JOIN FETCH s.zone z
+          LEFT JOIN FETCH s.floor sf
+          LEFT JOIN FETCH z.floor zf
+          WHERE s.isDeleted = false
+            AND z.isDeleted = false
+            AND p.isDeleted = false
+          ORDER BY t.slug ASC, p.name ASC, COALESCE(sf.displayOrder, zf.displayOrder, 999) ASC,
+            COALESCE(sf.name, zf.name, '') ASC, z.name ASC, z.code ASC, s.code ASC
+          """)
+  List<Slot> findAllForDemoCoordinateSeed();
 
   Page<Slot> findAll(Pageable pageable);
 

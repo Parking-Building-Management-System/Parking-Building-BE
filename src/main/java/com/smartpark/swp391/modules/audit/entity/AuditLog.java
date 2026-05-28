@@ -47,6 +47,19 @@ public class AuditLog extends TenantScopedEntity {
   @Column(name = "user_agent", length = 500)
   private String userAgent;
 
+  @Column(name = "actor_role", length = 100)
+  private String actorRole;
+
+  @Column(nullable = false, length = 20)
+  @Builder.Default
+  private String severity = "INFO";
+
+  @Column(columnDefinition = "text")
+  private String reason;
+
+  @Column(name = "device_fingerprint", length = 255)
+  private String deviceFingerprint;
+
   @Column(columnDefinition = "text")
   private String metadata;
 

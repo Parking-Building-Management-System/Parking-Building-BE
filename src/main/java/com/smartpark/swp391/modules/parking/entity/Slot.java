@@ -10,6 +10,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -47,6 +48,12 @@ public class Slot extends TenantScopedEntity {
 
   @Column(name = "slot_number", nullable = false, length = 50)
   private String slotNumber;
+
+  @Column(name = "x_coordinate", precision = 5, scale = 2)
+  private BigDecimal xCoordinate;
+
+  @Column(name = "y_coordinate", precision = 5, scale = 2)
+  private BigDecimal yCoordinate;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)

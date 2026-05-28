@@ -5,6 +5,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -89,7 +91,8 @@ public interface SessionRepository extends JpaRepository<Session, UUID> {
   int revokeAllActiveByTenantId(@Param("tenantId") UUID tenantId, @Param("now") LocalDateTime now);
 
   @Query(
-      """
+      value =
+          """
           SELECT s
           FROM Session s
           JOIN FETCH s.device d
@@ -105,4 +108,51 @@ public interface SessionRepository extends JpaRepository<Session, UUID> {
       @Param("sessionId") UUID sessionId,
       @Param("userId") UUID userId,
       @Param("now") LocalDateTime now);
+
+  long countByRevokedAtIsNullAndExpiredAtAfter(LocalDateTime now);
+
+  @Query(
+      value =
+          """
+          SELECT s
+          FROM Session s
+          JOIN FETCH s.user u
+          JOIN FETCH u.tenant t
+          JOIN FETCH s.device d
+          WHERE (:tenantId IS NULL OR t.id = :tenantId)
+            AND (:role IS NULL OR EXISTS (
+              SELECT 1 FROM UserRole ur JOIN ur.role r
+              WHERE ur.user.id = u.id AND r.name = :role
+            ))
+            AND (
+              :status IS NULL
+              OR (:status = 'ACTIVE' AND s.revokedAt IS NULL AND s.expiredAt > :now)
+              OR (:status = 'REVOKED' AND s.revokedAt IS NOT NULL)
+              OR (:status = 'EXPIRED' AND s.revokedAt IS NULL AND s.expiredAt <= :now)
+            )
+          """,
+      countQuery =
+          """
+          SELECT COUNT(s)
+          FROM Session s
+          JOIN s.user u
+          JOIN u.tenant t
+          WHERE (:tenantId IS NULL OR t.id = :tenantId)
+            AND (:role IS NULL OR EXISTS (
+              SELECT 1 FROM UserRole ur JOIN ur.role r
+              WHERE ur.user.id = u.id AND r.name = :role
+            ))
+            AND (
+              :status IS NULL
+              OR (:status = 'ACTIVE' AND s.revokedAt IS NULL AND s.expiredAt > :now)
+              OR (:status = 'REVOKED' AND s.revokedAt IS NOT NULL)
+              OR (:status = 'EXPIRED' AND s.revokedAt IS NULL AND s.expiredAt <= :now)
+            )
+          """)
+  Page<Session> findAdminSessions(
+      @Param("tenantId") UUID tenantId,
+      @Param("role") String role,
+      @Param("status") String status,
+      @Param("now") LocalDateTime now,
+      Pageable pageable);
 }

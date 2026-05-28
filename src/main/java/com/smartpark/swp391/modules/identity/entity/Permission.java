@@ -5,6 +5,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -36,4 +37,15 @@ public class Permission extends BaseEntity {
 
   @Column(length = 50)
   private String action;
+
+  @Column(columnDefinition = "text")
+  private String description;
+
+  @Column(nullable = false, length = 20)
+  @Builder.Default
+  private String status = "ACTIVE";
+
+  @Column(name = "is_deleted", nullable = false)
+  @Builder.Default
+  private boolean deleted = false;
 }

@@ -19,6 +19,8 @@ public final class RedisKeys {
   private static final String TENANT_PARKING_TOPOLOGY = PREFIX + ":tenant:%s:topology:%s";
   private static final String ADMIN_DASHBOARD_STATS = PREFIX + ":admin:dashboard:stats";
   private static final String ADMIN_VEHICLE_TYPES = PREFIX + ":admin:master-data:vehicle-types";
+  private static final String ADMIN_PERMISSION_TREE = PREFIX + ":admin:permissions:tree";
+  private static final String ADMIN_ROLE_PERMISSION_TREE = PREFIX + ":admin:roles:%s:permissions";
 
   private static final String RATE_LIMIT_USER = PREFIX + ":ratelimit:user:";
   private static final String RATE_LIMIT_LOGIN = PREFIX + ":ratelimit:login:";
@@ -88,5 +90,14 @@ public final class RedisKeys {
 
   public static String adminVehicleTypes() {
     return ADMIN_VEHICLE_TYPES;
+  }
+
+  public static String adminPermissionTree() {
+    return ADMIN_PERMISSION_TREE;
+  }
+
+  public static String adminRolePermissionTree(UUID roleId) {
+    requireNonBlank(roleId, "roleId");
+    return String.format(ADMIN_ROLE_PERMISSION_TREE, roleId);
   }
 }

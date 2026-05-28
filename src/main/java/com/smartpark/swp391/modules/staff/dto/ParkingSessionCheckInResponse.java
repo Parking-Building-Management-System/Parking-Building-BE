@@ -10,6 +10,8 @@ public record ParkingSessionCheckInResponse(
     UUID sessionId,
     String plateNumber,
     String cardCode,
+    String qrToken,
+    String pwaAccessPath,
     UUID assignedSlotId,
     String assignedSlotCode,
     UUID zoneId,
