@@ -5,6 +5,17 @@ app:
     server:
       url: ${SWAGGER_SERVER_URL:http://localhost:8080}
       description: ${SWAGGER_SERVER_DESC:Local Server}
+  storage:
+    minio:
+      endpoint: ${APP_MINIO_ENDPOINT:}
+      access-key: ${APP_MINIO_ACCESS_KEY:}
+      secret-key: ${APP_MINIO_SECRET_KEY:}
+      signing-region: ${APP_MINIO_SIGNING_REGION:minio}
+      bucket: ${APP_MINIO_BUCKET:smartpark}
+  demo-seed:
+    enabled: ${APP_DEMO_SEED_ENABLED:false}
+    floor-maps-enabled: ${APP_DEMO_SEED_FLOOR_MAPS_ENABLED:false}
+    slot-coordinates-enabled: ${APP_DEMO_SEED_SLOT_COORDINATES_ENABLED:false}
 
 spring:
   profiles:

@@ -15,8 +15,10 @@ import com.smartpark.swp391.modules.parking.entity.RfidCard;
 import com.smartpark.swp391.modules.parking.enumType.RfidCardStatus;
 import com.smartpark.swp391.modules.parking.repository.RfidCardRepository;
 import com.smartpark.swp391.modules.parking.repository.SlotRepository;
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -32,6 +34,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 public class ManagerRfidCardServiceImpl implements ManagerRfidCardService {
+
+  private static final SecureRandom QR_TOKEN_RANDOM = new SecureRandom();
 
   RfidCardRepository rfidCardRepository;
   SlotRepository slotRepository;
@@ -77,6 +81,7 @@ public class ManagerRfidCardServiceImpl implements ManagerRfidCardService {
               .tenant(tenant)
               .code(code)
               .uid("UID-" + tenantId + "-" + code)
+              .qrToken(generateUniqueQrToken())
               .assignedUser(null)
               .status(RfidCardStatus.ACTIVE)
               .activatedAt(LocalDateTime.now())
@@ -129,6 +134,7 @@ public class ManagerRfidCardServiceImpl implements ManagerRfidCardService {
         .id(card.getId())
         .code(card.getCode())
         .uid(card.getUid())
+        .qrToken(card.getQrToken())
         .assignedUserId(card.getAssignedUser() == null ? null : card.getAssignedUser().getId())
         .status(card.getStatus())
         .activatedAt(card.getActivatedAt())
@@ -143,5 +149,19 @@ public class ManagerRfidCardServiceImpl implements ManagerRfidCardService {
   private UUID currentTenantId() {
     return TenantContext.getTenantId()
         .orElseThrow(() -> new ApiException(ErrorCode.UNAUTHENTICATED));
+  }
+
+  private String generateUniqueQrToken() {
+    String token;
+    do {
+      token = generateQrToken();
+    } while (rfidCardRepository.existsByQrToken(token));
+    return token;
+  }
+
+  private String generateQrToken() {
+    byte[] bytes = new byte[32];
+    QR_TOKEN_RANDOM.nextBytes(bytes);
+    return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
   }
 }

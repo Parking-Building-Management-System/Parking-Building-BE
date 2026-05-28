@@ -6,9 +6,11 @@ import com.smartpark.swp391.infrastructure.cached.redis.helper.RedisJsonCacheSup
 import com.smartpark.swp391.infrastructure.cached.redis.keys.RedisKeys;
 import com.smartpark.swp391.modules.admin.dto.dashboard.AdminDashboardStatsResponse;
 import com.smartpark.swp391.modules.admin.dto.masterdata.AdminVehicleTypeResponse;
+import com.smartpark.swp391.modules.admin.dto.permission.PermissionScopeNode;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -46,5 +48,33 @@ public class AdminPortalCacheService extends RedisJsonCacheSupport {
 
   public void evictVehicleTypes() {
     deleteKey(RedisKeys.adminVehicleTypes());
+  }
+
+  public Optional<List<PermissionScopeNode>> getPermissionTree() {
+    return readRawValue(RedisKeys.adminPermissionTree())
+        .flatMap(json -> deserialize(json, new TypeReference<List<PermissionScopeNode>>() {}));
+  }
+
+  public void savePermissionTree(List<PermissionScopeNode> response) {
+    serialize(response)
+        .ifPresent(json -> redis.opsForValue().set(RedisKeys.adminPermissionTree(), json));
+  }
+
+  public void evictPermissionTree() {
+    deleteKey(RedisKeys.adminPermissionTree());
+  }
+
+  public Optional<List<PermissionScopeNode>> getRolePermissionTree(UUID roleId) {
+    return readRawValue(RedisKeys.adminRolePermissionTree(roleId))
+        .flatMap(json -> deserialize(json, new TypeReference<List<PermissionScopeNode>>() {}));
+  }
+
+  public void saveRolePermissionTree(UUID roleId, List<PermissionScopeNode> response) {
+    serialize(response)
+        .ifPresent(json -> redis.opsForValue().set(RedisKeys.adminRolePermissionTree(roleId), json));
+  }
+
+  public void evictRolePermissionTree(UUID roleId) {
+    deleteKey(RedisKeys.adminRolePermissionTree(roleId));
   }
 }

@@ -42,6 +42,8 @@ public class SecurityConfig {
     "/auth/login", "/auth/refresh", "/internal/healthz"
   };
 
+  private static final String[] PUBLIC_PWA_ENDPOINTS = {"/pwa/**"};
+
   @Bean
   public PasswordEncoder passwordEncoder() {
     return new BCryptPasswordEncoder(10);
@@ -76,6 +78,8 @@ public class SecurityConfig {
             auth.requestMatchers(SWAGGER_ENDPOINTS)
                 .permitAll()
                 .requestMatchers(PUBLIC_AUTH_ENDPOINTS)
+                .permitAll()
+                .requestMatchers(PUBLIC_PWA_ENDPOINTS)
                 .permitAll()
                 .requestMatchers("/ws/**")
                 .permitAll()

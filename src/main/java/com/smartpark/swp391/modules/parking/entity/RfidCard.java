@@ -36,6 +36,9 @@ public class RfidCard extends TenantScopedEntity {
   @Column(nullable = false, length = 100)
   private String uid;
 
+  @Column(name = "qr_token", nullable = false, unique = true, length = 120)
+  private String qrToken;
+
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "assigned_user_id")
   private User assignedUser;
