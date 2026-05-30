@@ -5,7 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
-@Repository
-public interface TenantRepository extends JpaRepository<Tenant, Long>, JpaSpecificationExecutor<Tenant> {
-    // Để trống vì JpaSpecificationExecutor đã cung cấp sẵn hàm tìm kiếm nâng cao kèm phân trang.
+@Repository("moduleTenantRepository")
+public interface TenantRepository extends JpaRepository<Tenant, String>, JpaSpecificationExecutor<Tenant> {
+    boolean existsByEmail(String email);
 }

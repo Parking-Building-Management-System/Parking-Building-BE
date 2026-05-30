@@ -5,8 +5,7 @@ import lombok.Data;
 @Data
 public class TenantParamRequest {
     // Các tham số để lọc (Filter)
-    private String search;          // Thanh tìm kiếm chung (Tên, mã, SĐT)
-    private String apartmentNumber; // Bộ lọc riêng theo số phòng
+    private String search;          // Thanh tìm kiếm chung (Tên, email, contact)
     private String status;          // Bộ lọc theo trạng thái
 
     // Các tham số để Phân trang (Pagination) và Sắp xếp (Sort)

@@ -4,42 +4,54 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
 
-@Entity
+@Entity(name = "ModuleTenant")
 @Table(name = "tenants")
 @Getter
 @Setter
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class Tenant {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "id", updatable = false, nullable = false)
+    private String id;
 
-    @Column(name = "tenant_code", unique = true, nullable = false, length = 20)
-    private String tenantCode; // Mã khách hàng
+    @Column(name = "name", nullable = false)
+    private String name;
 
-    @Column(name = "full_name", nullable = false, length = 100)
-    private String fullName; // Tên khách hàng
+    @Column(name = "slug", nullable = false, unique = true, length = 100)
+    private String slug;
 
-    @Column(name = "email", unique = true, length = 100)
+    @Column(name = "email_contact", unique = true, nullable = false)
     private String email;
 
-    @Column(name = "phone_number", length = 15)
-    private String phoneNumber;
+    @Column(name = "contact")
+    private String contact;
 
-    @Column(name = "apartment_number", length = 20)
-    private String apartmentNumber; // Số căn hộ/văn phòng thuê
+    @Column(name = "status", nullable = false, length = 20)
+    @Builder.Default
+    private String status = "ACTIVE";
 
-    @Column(name = "status", length = 20)
-    private String status; // Trạng thái: ACTIVE, INACTIVE
+    @Column(name = "is_deleted", nullable = false)
+    @Builder.Default
+    private boolean isDeleted = false;
 
-    @Column(name = "created_at")
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now(); // Tự động lưu ngày giờ tạo khi thêm mới
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
     }
 }

@@ -33,6 +33,7 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
     out-of-order: true
+    ignore-migration-patterns: "*:missing"
 
   data:
     redis:
