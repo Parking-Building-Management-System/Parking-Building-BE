@@ -1,0 +1,34 @@
+meta {
+  name: PayOS Webhook Sample
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/payments/webhooks/payos
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "code": "00",
+    "desc": "SAMPLE ONLY - invalid signature expected",
+    "success": true,
+    "data": {
+      "orderCode": {{paymentOrderCode}},
+      "amount": 30000,
+      "description": "SPK{{paymentOrderCode}}",
+      "transactionDateTime": "2026-05-31 10:00:00"
+    },
+    "signature": "sample-invalid-signature"
+  }
+}
+
+docs {
+  SAMPLE ONLY. Do not put real PayOS keys or signatures here. Real PayOS webhooks require a valid checksum signature and this sample should be rejected with invalid signature behavior.
+}
