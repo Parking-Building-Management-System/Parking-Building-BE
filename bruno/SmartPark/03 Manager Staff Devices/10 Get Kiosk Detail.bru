@@ -1,0 +1,15 @@
+meta {
+  name: Get Kiosk Detail
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/manager/kiosks/{{kioskId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}

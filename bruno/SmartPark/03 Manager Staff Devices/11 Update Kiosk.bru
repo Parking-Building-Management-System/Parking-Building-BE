@@ -1,0 +1,26 @@
+meta {
+  name: Update Kiosk
+  type: http
+  seq: 11
+}
+
+put {
+  url: {{baseUrl}}/manager/kiosks/{{kioskId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Main Entry Kiosk Updated",
+    "type": "ENTRY",
+    "status": "ACTIVE"
+  }
+}

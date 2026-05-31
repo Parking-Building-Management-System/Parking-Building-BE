@@ -1,0 +1,15 @@
+meta {
+  name: Delete Kiosk
+  type: http
+  seq: 13
+}
+
+delete {
+  url: {{baseUrl}}/manager/kiosks/{{kioskId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
