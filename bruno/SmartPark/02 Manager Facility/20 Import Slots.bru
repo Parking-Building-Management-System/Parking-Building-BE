@@ -1,0 +1,24 @@
+meta {
+  name: Import Slots
+  type: http
+  seq: 20
+}
+
+post {
+  url: {{baseUrl}}/manager/slots/import
+  body: multipartForm
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+
+body:multipart-form {
+  parkingId: {{parkingId}}
+  file: @/absolute/path/to/slots.xlsx
+}
+
+docs {
+  Replace the file path with a local Excel file before running. Keep imported data tenant-scoped and safe for demos.
+}

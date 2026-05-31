@@ -1,0 +1,27 @@
+meta {
+  name: Bulk Slot Status
+  type: http
+  seq: 19
+}
+
+patch {
+  url: {{baseUrl}}/manager/slots/bulk-status
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "slotIds": [
+      "{{slotId}}"
+    ],
+    "newStatus": "AVAILABLE"
+  }
+}

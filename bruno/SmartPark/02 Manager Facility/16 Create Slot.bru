@@ -1,0 +1,26 @@
+meta {
+  name: Create Slot
+  type: http
+  seq: 16
+}
+
+post {
+  url: {{baseUrl}}/manager/zones/{{zoneId}}/slots
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "code": "C-04",
+    "slotNumber": "04",
+    "status": "AVAILABLE"
+  }
+}
