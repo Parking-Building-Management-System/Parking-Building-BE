@@ -3,6 +3,7 @@ package com.smartpark.swp391.modules.pwa.controller;
 import com.smartpark.swp391.common.exception.ErrorCode;
 import com.smartpark.swp391.common.response.ApiResponse;
 import com.smartpark.swp391.modules.pwa.dto.CardActiveSessionResponse;
+import com.smartpark.swp391.modules.pwa.dto.CardCheckoutQuoteResponse;
 import com.smartpark.swp391.modules.pwa.service.PwaCardSessionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -38,6 +39,20 @@ public class PwaCardSessionController {
             .result(pwaCardSessionService.getActiveSession(qrToken))
             .timestamp(Instant.now())
             .path("/pwa/cards/" + qrToken + "/active-session")
+            .build());
+  }
+
+  @GetMapping("/{qrToken}/checkout-quote")
+  @Operation(summary = "Resolve checkout quote by RFID card QR token")
+  public ResponseEntity<ApiResponse<CardCheckoutQuoteResponse>> getCheckoutQuote(
+      @PathVariable String qrToken) {
+    return ResponseEntity.ok(
+        ApiResponse.<CardCheckoutQuoteResponse>builder()
+            .code(ErrorCode.SUCCESS.getCode())
+            .message(ErrorCode.SUCCESS.getDefaultMessage())
+            .result(pwaCardSessionService.getCheckoutQuote(qrToken))
+            .timestamp(Instant.now())
+            .path("/pwa/cards/" + qrToken + "/checkout-quote")
             .build());
   }
 }
