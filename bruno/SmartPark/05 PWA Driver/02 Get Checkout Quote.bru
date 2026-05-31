@@ -1,0 +1,15 @@
+meta {
+  name: Get Checkout Quote
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/pwa/cards/{{qrToken}}/checkout-quote
+  body: none
+  auth: none
+}
+
+docs {
+  Expected response includes amount, duration, pricing breakdown, paymentAvailable, paymentStatus, existingPaymentIntent, and nextAction.
+}
