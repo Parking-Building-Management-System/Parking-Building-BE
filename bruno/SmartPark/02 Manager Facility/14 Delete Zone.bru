@@ -1,0 +1,15 @@
+meta {
+  name: Delete Zone
+  type: http
+  seq: 14
+}
+
+delete {
+  url: {{baseUrl}}/manager/zones/{{zoneId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}

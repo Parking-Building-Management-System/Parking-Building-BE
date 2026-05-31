@@ -1,0 +1,28 @@
+meta {
+  name: Create Zone
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/manager/floors/{{floorId}}/zones
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "code": "B1-CAR",
+    "name": "B1 Resident Cars",
+    "vehicleTypeCode": "CAR",
+    "capacity": 20,
+    "status": "ACTIVE"
+  }
+}

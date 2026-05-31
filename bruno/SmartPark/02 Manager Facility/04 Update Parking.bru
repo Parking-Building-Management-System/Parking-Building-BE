@@ -1,0 +1,27 @@
+meta {
+  name: Update Parking
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/manager/parkings/{{parkingId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "code": "DEMO-PARKING",
+    "name": "Demo Parking Updated",
+    "address": "123 Demo Street",
+    "status": "ACTIVE"
+  }
+}

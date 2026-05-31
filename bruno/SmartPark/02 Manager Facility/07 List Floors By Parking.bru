@@ -1,0 +1,15 @@
+meta {
+  name: List Floors By Parking
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/manager/parkings/{{parkingId}}/floors
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}

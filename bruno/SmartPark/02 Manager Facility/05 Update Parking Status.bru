@@ -1,0 +1,24 @@
+meta {
+  name: Update Parking Status
+  type: http
+  seq: 5
+}
+
+patch {
+  url: {{baseUrl}}/manager/parkings/{{parkingId}}/status
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "status": "ACTIVE"
+  }
+}

@@ -1,0 +1,15 @@
+meta {
+  name: List Zones By Floor
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{baseUrl}}/manager/floors/{{floorId}}/zones
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
