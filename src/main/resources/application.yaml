@@ -12,6 +12,14 @@ app:
       secret-key: ${APP_MINIO_SECRET_KEY:}
       signing-region: ${APP_MINIO_SIGNING_REGION:minio}
       bucket: ${APP_MINIO_BUCKET:smartpark}
+  payos:
+    enabled: ${PAYOS_ENABLED:false}
+    client-id: ${PAYOS_CLIENT_ID:}
+    api-key: ${PAYOS_API_KEY:}
+    checksum-key: ${PAYOS_CHECKSUM_KEY:}
+    webhook-url: ${PAYOS_WEBHOOK_URL:}
+    return-url: ${PAYOS_RETURN_URL:}
+    cancel-url: ${PAYOS_CANCEL_URL:}
   demo-seed:
     enabled: ${APP_DEMO_SEED_ENABLED:false}
     floor-maps-enabled: ${APP_DEMO_SEED_FLOOR_MAPS_ENABLED:false}

@@ -205,3 +205,10 @@ GROUP BY tenant_id;
 - Slot status bulk update tools.
 - RFID card pool generation and status management.
 - Facility topology tree for manager dashboards.
+
+## Audit Notes 2026-05-31
+
+- Slot import resolves `parkingCode` within the authenticated manager tenant.
+- Bulk slot status rejects cross-tenant slot ids before updating.
+- There is no dedicated facility overview endpoint yet; FE derives counts from parkings, topology,
+  floor maps, and RFID list pagination.

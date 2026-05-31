@@ -1,0 +1,25 @@
+meta {
+  name: Revoke Session
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{baseUrl}}/admin/sessions/{{sessionRevokeId}}/revoke
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{systemAdminToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "reason": "Manual Bruno smoke test"
+  }
+}

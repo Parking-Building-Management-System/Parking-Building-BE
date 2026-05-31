@@ -1,0 +1,15 @@
+meta {
+  name: List Parkings
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/manager/parkings
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}

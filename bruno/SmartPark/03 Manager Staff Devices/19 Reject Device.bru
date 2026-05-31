@@ -1,0 +1,15 @@
+meta {
+  name: Reject Device
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{baseUrl}}/manager/device-approvals/{{deviceApprovalId}}/reject
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}

@@ -1,0 +1,27 @@
+meta {
+  name: Create Exit Kiosk
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/manager/kiosks
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "parkingId": "{{parkingId}}",
+    "name": "Main Exit Kiosk",
+    "type": "EXIT",
+    "status": "ACTIVE"
+  }
+}

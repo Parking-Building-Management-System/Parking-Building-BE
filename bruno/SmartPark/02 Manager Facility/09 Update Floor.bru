@@ -1,0 +1,27 @@
+meta {
+  name: Update Floor
+  type: http
+  seq: 9
+}
+
+put {
+  url: {{baseUrl}}/manager/floors/{{floorId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "code": "B1",
+    "name": "Basement 1 Updated",
+    "displayOrder": 1,
+    "active": true
+  }
+}

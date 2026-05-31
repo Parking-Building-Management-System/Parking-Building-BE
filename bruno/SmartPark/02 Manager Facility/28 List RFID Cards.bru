@@ -1,0 +1,15 @@
+meta {
+  name: List RFID Cards
+  type: http
+  seq: 28
+}
+
+get {
+  url: {{baseUrl}}/manager/rfid-cards?parkingId={{parkingId}}&page=0&size=20
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}

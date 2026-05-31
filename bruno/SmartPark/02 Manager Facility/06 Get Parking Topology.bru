@@ -1,0 +1,15 @@
+meta {
+  name: Get Parking Topology
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/manager/parkings/{{parkingId}}/topology
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}

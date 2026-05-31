@@ -1,0 +1,15 @@
+meta {
+  name: Get Tenants
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/admin/tenants?page=0&size=20
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{systemAdminToken}}
+}

@@ -1,0 +1,15 @@
+meta {
+  name: List Device Approvals
+  type: http
+  seq: 17
+}
+
+get {
+  url: {{baseUrl}}/manager/device-approvals
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}

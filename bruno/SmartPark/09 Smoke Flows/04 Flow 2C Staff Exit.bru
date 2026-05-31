@@ -1,0 +1,33 @@
+meta {
+  name: Flow 2C Staff Exit
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/staff/parking-sessions/exit-preview
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{staffExitToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "cardCode": "{{cardCode}}"
+  }
+}
+
+docs {
+  Manual sequence:
+  1. Login staff from an approved EXIT or ENTRY_EXIT kiosk device and set `staffExitToken`.
+  2. Run exit preview.
+  3. Complete with ONLINE, CASH, or SURCHARGE_CASH depending on exitDecision.
+  4. Verify the session is COMPLETED, slot is AVAILABLE, and RFID card remains reusable.
+}

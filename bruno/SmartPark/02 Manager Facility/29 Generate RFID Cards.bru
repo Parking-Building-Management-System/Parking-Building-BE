@@ -1,0 +1,25 @@
+meta {
+  name: Generate RFID Cards
+  type: http
+  seq: 29
+}
+
+post {
+  url: {{baseUrl}}/manager/rfid-cards/generate
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "count": 5,
+    "prefix": "BCONS"
+  }
+}

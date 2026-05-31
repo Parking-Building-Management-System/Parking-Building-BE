@@ -1,0 +1,30 @@
+meta {
+  name: Bulk Slot Coordinates
+  type: http
+  seq: 25
+}
+
+patch {
+  url: {{baseUrl}}/manager/slots/coordinates
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "items": [
+      {
+        "slotId": "{{slotId}}",
+        "xCoordinate": 42.50,
+        "yCoordinate": 65.00
+      }
+    ]
+  }
+}

@@ -1,0 +1,26 @@
+meta {
+  name: Update Slot
+  type: http
+  seq: 17
+}
+
+put {
+  url: {{baseUrl}}/manager/slots/{{slotId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "code": "C-04",
+    "slotNumber": "04",
+    "status": "AVAILABLE"
+  }
+}

@@ -1,0 +1,34 @@
+meta {
+  name: Update Pricing Rule
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/manager/pricing/rules/{{pricingRuleId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Car standard demo updated",
+    "parkingId": "{{parkingId}}",
+    "vehicleTypeId": "{{vehicleTypeId}}",
+    "freeMinutes": 0,
+    "firstBlockMinutes": 120,
+    "firstBlockPrice": 20000,
+    "nextBlockMinutes": 60,
+    "nextBlockPrice": 10000,
+    "dailyCapPrice": 100000,
+    "graceMinutesAfterPayment": 15,
+    "status": "ACTIVE"
+  }
+}

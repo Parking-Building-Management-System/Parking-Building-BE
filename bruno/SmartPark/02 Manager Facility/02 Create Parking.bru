@@ -1,0 +1,27 @@
+meta {
+  name: Create Parking
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/manager/parkings
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "code": "DEMO-PARKING",
+    "name": "Demo Parking",
+    "address": "123 Demo Street",
+    "status": "ACTIVE"
+  }
+}

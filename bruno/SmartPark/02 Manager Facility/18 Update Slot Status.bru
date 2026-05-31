@@ -1,0 +1,24 @@
+meta {
+  name: Update Slot Status
+  type: http
+  seq: 18
+}
+
+patch {
+  url: {{baseUrl}}/manager/slots/{{slotId}}/status
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "status": "AVAILABLE"
+  }
+}

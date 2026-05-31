@@ -1,0 +1,15 @@
+meta {
+  name: Delete Vehicle Type
+  type: http
+  seq: 6
+}
+
+delete {
+  url: {{baseUrl}}/admin/master-data/vehicle-types/{{vehicleTypeId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{systemAdminToken}}
+}

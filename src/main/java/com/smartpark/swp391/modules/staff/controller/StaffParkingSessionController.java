@@ -4,6 +4,10 @@ import com.smartpark.swp391.common.exception.ErrorCode;
 import com.smartpark.swp391.common.response.ApiResponse;
 import com.smartpark.swp391.modules.staff.dto.ParkingSessionCheckInRequest;
 import com.smartpark.swp391.modules.staff.dto.ParkingSessionCheckInResponse;
+import com.smartpark.swp391.modules.staff.dto.exit.CompleteExitRequest;
+import com.smartpark.swp391.modules.staff.dto.exit.CompleteExitResponse;
+import com.smartpark.swp391.modules.staff.dto.exit.ExitPreviewRequest;
+import com.smartpark.swp391.modules.staff.dto.exit.ExitPreviewResponse;
 import com.smartpark.swp391.modules.staff.service.StaffParkingSessionService;
 import com.smartpark.swp391.modules.staff.support.StaffTenantContext;
 import io.swagger.v3.oas.annotations.Operation;
@@ -78,6 +82,40 @@ public class StaffParkingSessionController {
             .result(result)
             .timestamp(Instant.now())
             .path("/staff/parking-sessions/check-in")
+            .build());
+  }
+
+  @PostMapping("/exit-preview")
+  @Operation(summary = "Preview exit decision for an active parking session")
+  public ResponseEntity<ApiResponse<ExitPreviewResponse>> previewExit(
+      @Valid @RequestBody ExitPreviewRequest request, @AuthenticationPrincipal Jwt jwt) {
+    ExitPreviewResponse result =
+        staffTenantContext.call(jwt, () -> staffParkingSessionService.previewExit(request));
+
+    return ResponseEntity.ok(
+        ApiResponse.<ExitPreviewResponse>builder()
+            .code(ErrorCode.SUCCESS.getCode())
+            .message(ErrorCode.SUCCESS.getDefaultMessage())
+            .result(result)
+            .timestamp(Instant.now())
+            .path("/staff/parking-sessions/exit-preview")
+            .build());
+  }
+
+  @PostMapping("/complete-exit")
+  @Operation(summary = "Complete exit and release the assigned slot")
+  public ResponseEntity<ApiResponse<CompleteExitResponse>> completeExit(
+      @Valid @RequestBody CompleteExitRequest request, @AuthenticationPrincipal Jwt jwt) {
+    CompleteExitResponse result =
+        staffTenantContext.call(jwt, () -> staffParkingSessionService.completeExit(request));
+
+    return ResponseEntity.ok(
+        ApiResponse.<CompleteExitResponse>builder()
+            .code(ErrorCode.SUCCESS.getCode())
+            .message(ErrorCode.SUCCESS.getDefaultMessage())
+            .result(result)
+            .timestamp(Instant.now())
+            .path("/staff/parking-sessions/complete-exit")
             .build());
   }
 }

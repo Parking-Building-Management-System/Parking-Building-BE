@@ -1,0 +1,25 @@
+meta {
+  name: Revoke Device
+  type: http
+  seq: 18
+}
+
+post {
+  url: {{baseUrl}}/admin/devices/{{deviceId}}/revoke
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{systemAdminToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "reason": "Manual Bruno smoke test"
+  }
+}

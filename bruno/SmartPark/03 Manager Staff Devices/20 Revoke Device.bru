@@ -1,0 +1,15 @@
+meta {
+  name: Revoke Device
+  type: http
+  seq: 20
+}
+
+post {
+  url: {{baseUrl}}/manager/devices/{{deviceId}}/revoke
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}

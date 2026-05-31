@@ -1,0 +1,15 @@
+meta {
+  name: Get Audit Logs
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{baseUrl}}/admin/audit/logs?page=0&size=20
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{systemAdminToken}}
+}

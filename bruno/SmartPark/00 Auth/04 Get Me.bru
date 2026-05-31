@@ -1,0 +1,19 @@
+meta {
+  name: Get Me
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/auth/me
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+
+docs {
+  Swap the bearer token variable to `systemAdminToken`, `managerToken`, `staffEntryToken`, or `staffExitToken` to inspect that identity.
+}

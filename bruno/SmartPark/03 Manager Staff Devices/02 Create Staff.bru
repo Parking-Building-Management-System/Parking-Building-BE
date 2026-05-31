@@ -1,0 +1,28 @@
+meta {
+  name: Create Staff
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/manager/staff
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "username": "staff.demo@example.com",
+    "initialPassword": "ChangeMe123!",
+    "fullName": "Demo Staff",
+    "phone": "0900000000",
+    "status": "ACTIVE"
+  }
+}

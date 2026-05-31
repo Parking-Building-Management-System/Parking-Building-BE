@@ -1,0 +1,26 @@
+meta {
+  name: Preview Pricing Rule
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/manager/pricing/rules/{{pricingRuleId}}/preview
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "checkInAt": "2026-05-31T08:00:00+07:00",
+    "checkOutAt": "2026-05-31T11:30:00+07:00",
+    "vehicleTypeId": "{{vehicleTypeId}}"
+  }
+}

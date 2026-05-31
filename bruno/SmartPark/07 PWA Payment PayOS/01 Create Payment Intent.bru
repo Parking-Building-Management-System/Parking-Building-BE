@@ -1,0 +1,15 @@
+meta {
+  name: Create Payment Intent
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/pwa/cards/{{qrToken}}/payment-intents
+  body: none
+  auth: none
+}
+
+docs {
+  Expected response includes paymentIntentId, orderCode, amount, currency, status, provider, checkoutUrl, qrCode, expiresAt, and description. Copy orderCode into `paymentOrderCode`.
+}

@@ -1,0 +1,18 @@
+meta {
+  name: Flow 2A Checkout Quote
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/pwa/cards/{{qrToken}}/checkout-quote
+  body: none
+  auth: none
+}
+
+docs {
+  Manual sequence:
+  1. Ensure an ACTIVE pricing rule exists for the parking and vehicle type.
+  2. Use a qrToken from an active checked-in session.
+  3. Verify amount, duration, breakdown, paymentAvailable, and nextAction.
+}

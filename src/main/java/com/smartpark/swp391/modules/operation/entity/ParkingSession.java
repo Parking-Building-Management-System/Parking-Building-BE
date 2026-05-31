@@ -2,6 +2,7 @@ package com.smartpark.swp391.modules.operation.entity;
 
 import com.smartpark.swp391.infrastructure.persistence.TenantScopedEntity;
 import com.smartpark.swp391.modules.operation.enumType.ParkingSessionStatus;
+import com.smartpark.swp391.modules.operation.enumType.SessionPaymentStatus;
 import com.smartpark.swp391.modules.parking.entity.Parking;
 import com.smartpark.swp391.modules.parking.entity.RfidCard;
 import com.smartpark.swp391.modules.parking.entity.Slot;
@@ -82,4 +83,20 @@ public class ParkingSession extends TenantScopedEntity {
 
   @Column(name = "total_amount", precision = 12, scale = 2)
   private BigDecimal totalAmount;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "payment_status", length = 20)
+  private SessionPaymentStatus paymentStatus;
+
+  @Column(name = "payment_method", length = 30)
+  private String paymentMethod;
+
+  @Column(name = "payment_reference", length = 100)
+  private String paymentReference;
+
+  @Column(name = "paid_at")
+  private LocalDateTime paidAt;
+
+  @Column(name = "exit_deadline")
+  private LocalDateTime exitDeadline;
 }

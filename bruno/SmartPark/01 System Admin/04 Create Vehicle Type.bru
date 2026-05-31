@@ -1,0 +1,27 @@
+meta {
+  name: Create Vehicle Type
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/admin/master-data/vehicle-types
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{systemAdminToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Demo Car",
+    "code": "DEMO_CAR",
+    "active": true
+  }
+}

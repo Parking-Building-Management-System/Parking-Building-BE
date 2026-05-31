@@ -1,0 +1,15 @@
+meta {
+  name: Unassign Staff From Kiosk
+  type: http
+  seq: 16
+}
+
+delete {
+  url: {{baseUrl}}/manager/kiosks/{{kioskId}}/staff/{{staffId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}

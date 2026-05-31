@@ -1,0 +1,15 @@
+meta {
+  name: Get Payment Intent Status
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/pwa/payment-intents/{{paymentOrderCode}}
+  body: none
+  auth: none
+}
+
+docs {
+  PWA uses this to poll PENDING, PAID, FAILED, CANCELLED, or EXPIRED without exposing sensitive provider data.
+}

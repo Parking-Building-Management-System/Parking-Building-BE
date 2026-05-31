@@ -1,0 +1,27 @@
+meta {
+  name: Create Floor
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/manager/parkings/{{parkingId}}/floors
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "code": "B1",
+    "name": "Basement 1",
+    "displayOrder": 1,
+    "active": true
+  }
+}

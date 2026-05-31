@@ -1,0 +1,28 @@
+meta {
+  name: Login Staff
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "username": "staff@example.com",
+    "password": "change-me",
+    "deviceFingerprint": "bruno-staff-device",
+    "deviceLabel": "Bruno Staff Kiosk"
+  }
+}
+
+docs {
+  Use a device fingerprint approved by the manager for the target kiosk. Paste entry staff tokens into `staffEntryToken` and exit staff tokens into `staffExitToken`.
+}

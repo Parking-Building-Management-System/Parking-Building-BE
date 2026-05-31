@@ -1,0 +1,26 @@
+meta {
+  name: Presign Storage Upload
+  type: http
+  seq: 26
+}
+
+post {
+  url: {{baseUrl}}/manager/storage/presign-upload
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "fileName": "b1-map.png",
+    "contentType": "image/png",
+    "folder": "maps"
+  }
+}

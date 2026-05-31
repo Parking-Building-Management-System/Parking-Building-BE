@@ -31,4 +31,41 @@ public interface ParkingSessionRepository extends JpaRepository<ParkingSession, 
       @Param("rfidCardId") UUID rfidCardId,
       @Param("status") ParkingSessionStatus status,
       Pageable pageable);
+
+  @Query(
+      """
+          SELECT ps
+          FROM ParkingSession ps
+          JOIN FETCH ps.parking p
+          JOIN FETCH ps.zone z
+          JOIN FETCH ps.slot s
+          LEFT JOIN FETCH s.floor f
+          JOIN FETCH ps.rfidCard c
+          JOIN FETCH ps.vehicleType vt
+          WHERE ps.tenant.id = :tenantId
+            AND c.id = :rfidCardId
+            AND ps.status = :status
+          ORDER BY ps.checkInAt DESC
+          """)
+  List<ParkingSession> findActiveDetailByTenantAndRfidCardId(
+      @Param("tenantId") UUID tenantId,
+      @Param("rfidCardId") UUID rfidCardId,
+      @Param("status") ParkingSessionStatus status,
+      Pageable pageable);
+
+  @Query(
+      """
+          SELECT ps
+          FROM ParkingSession ps
+          JOIN FETCH ps.parking p
+          JOIN FETCH ps.zone z
+          JOIN FETCH ps.slot s
+          LEFT JOIN FETCH s.floor f
+          JOIN FETCH ps.rfidCard c
+          JOIN FETCH ps.vehicleType vt
+          WHERE ps.tenant.id = :tenantId
+            AND ps.id = :sessionId
+          """)
+  java.util.Optional<ParkingSession> findDetailByTenantIdAndId(
+      @Param("tenantId") UUID tenantId, @Param("sessionId") UUID sessionId);
 }

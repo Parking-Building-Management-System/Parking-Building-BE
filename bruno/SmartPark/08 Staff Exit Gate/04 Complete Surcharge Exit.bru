@@ -1,0 +1,28 @@
+meta {
+  name: Complete Surcharge Exit
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/staff/parking-sessions/complete-exit
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{staffExitToken}}
+}
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "sessionId": "{{sessionId}}",
+    "cardCode": "{{cardCode}}",
+    "paymentMode": "SURCHARGE_CASH",
+    "collectedAmount": 10000,
+    "note": "Grace-period surcharge collected at exit"
+  }
+}

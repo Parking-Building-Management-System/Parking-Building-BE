@@ -1,0 +1,15 @@
+meta {
+  name: Get Active Session By QR Token
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/pwa/cards/{{qrToken}}/active-session
+  body: none
+  auth: none
+}
+
+docs {
+  Expected response includes plate number, parking/floor/zone/slot, mapDisplayUrl, and slot x/y coordinates.
+}

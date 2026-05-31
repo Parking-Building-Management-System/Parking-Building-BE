@@ -1,0 +1,27 @@
+meta {
+  name: Update Role Permissions
+  type: http
+  seq: 10
+}
+
+put {
+  url: {{baseUrl}}/admin/roles/{{roleId}}/permissions
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{systemAdminToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "permissionIds": [
+      "{{permissionId}}"
+    ]
+  }
+}
