@@ -6,7 +6,9 @@ import com.smartpark.swp391.infrastructure.tenant.TenantContext;
 import com.smartpark.swp391.modules.identity.entity.Tenant;
 import com.smartpark.swp391.modules.identity.repository.TenantRepository;
 import com.smartpark.swp391.modules.operation.entity.ParkingSession;
+import com.smartpark.swp391.modules.operation.enumType.KioskType;
 import com.smartpark.swp391.modules.operation.enumType.ParkingSessionStatus;
+import com.smartpark.swp391.modules.operation.enumType.SessionPaymentStatus;
 import com.smartpark.swp391.modules.operation.repository.ParkingSessionRepository;
 import com.smartpark.swp391.modules.parking.entity.Parking;
 import com.smartpark.swp391.modules.parking.entity.RfidCard;
@@ -17,13 +19,24 @@ import com.smartpark.swp391.modules.parking.enumType.SlotStatus;
 import com.smartpark.swp391.modules.parking.repository.ParkingRepository;
 import com.smartpark.swp391.modules.parking.repository.RfidCardRepository;
 import com.smartpark.swp391.modules.parking.repository.SlotRepository;
+import com.smartpark.swp391.modules.pricing.dto.PricingQuoteResponse;
+import com.smartpark.swp391.modules.pricing.entity.PricingRule;
+import com.smartpark.swp391.modules.pricing.repository.PricingRuleRepository;
+import com.smartpark.swp391.modules.pricing.service.PricingQuoteService;
 import com.smartpark.swp391.modules.staff.dto.ParkingSessionCheckInRequest;
 import com.smartpark.swp391.modules.staff.dto.ParkingSessionCheckInResponse;
 import com.smartpark.swp391.modules.staff.dto.StaffWorkContextResponse;
+import com.smartpark.swp391.modules.staff.dto.exit.CompleteExitRequest;
+import com.smartpark.swp391.modules.staff.dto.exit.CompleteExitResponse;
+import com.smartpark.swp391.modules.staff.dto.exit.ExitDecision;
+import com.smartpark.swp391.modules.staff.dto.exit.ExitPaymentMode;
+import com.smartpark.swp391.modules.staff.dto.exit.ExitPreviewRequest;
+import com.smartpark.swp391.modules.staff.dto.exit.ExitPreviewResponse;
 import com.smartpark.swp391.modules.staff.service.StaffParkingSessionService;
 import com.smartpark.swp391.modules.staff.service.StaffWorkContextService;
 import com.smartpark.swp391.modules.vehicle.entity.VehicleType;
 import com.smartpark.swp391.modules.vehicle.repository.VehicleTypeRepository;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import lombok.AccessLevel;
@@ -45,6 +58,8 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
   VehicleTypeRepository vehicleTypeRepository;
   TenantRepository tenantRepository;
   StaffWorkContextService staffWorkContextService;
+  PricingQuoteService pricingQuoteService;
+  PricingRuleRepository pricingRuleRepository;
 
   @Override
   @Transactional
@@ -103,6 +118,75 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
     return toResponse(saved, card, slot);
   }
 
+  @Override
+  @Transactional(readOnly = true)
+  public ExitPreviewResponse previewExit(ExitPreviewRequest request) {
+    UUID tenantId = currentTenantId();
+    StaffWorkContextResponse workContext = requireExitWorkContext();
+    RfidCard card = getTenantCard(tenantId, request.cardCode());
+    ParkingSession session = getActiveSessionForExit(tenantId, card);
+    validateSessionInKioskParking(session, workContext.parkingId());
+    ExitPreview preview = buildExitPreview(session, card, LocalDateTime.now());
+    return preview.response();
+  }
+
+  @Override
+  @Transactional
+  public CompleteExitResponse completeExit(CompleteExitRequest request) {
+    UUID tenantId = currentTenantId();
+    StaffWorkContextResponse workContext = requireExitWorkContext();
+    ParkingSession session =
+        parkingSessionRepository
+            .findDetailByTenantIdAndId(tenantId, request.sessionId())
+            .orElseThrow(
+                () -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "PARKING_SESSION_NOT_FOUND"));
+
+    if (session.getStatus() == ParkingSessionStatus.COMPLETED) {
+      throw new ApiException(ErrorCode.DUPLICATE_RESOURCE, "SESSION_ALREADY_COMPLETED");
+    }
+    if (session.getStatus() != ParkingSessionStatus.ACTIVE) {
+      throw new ApiException(ErrorCode.INVALID_INPUT, "SESSION_NOT_ACTIVE");
+    }
+    validateSessionInKioskParking(session, workContext.parkingId());
+
+    RfidCard card = session.getRfidCard();
+    if (card == null || !card.getCode().equalsIgnoreCase(normalizeCardCode(request.cardCode()))) {
+      throw new ApiException(ErrorCode.INVALID_INPUT, "CARD_CODE_DOES_NOT_MATCH_SESSION");
+    }
+
+    LocalDateTime now = LocalDateTime.now();
+    ExitPreview preview = buildExitPreview(session, card, now);
+    validatePaymentMode(request, preview.response());
+
+    BigDecimal totalAmount = finalTotalAmount(session, request, preview.response());
+    session.setCheckOutAt(now);
+    session.setStatus(ParkingSessionStatus.COMPLETED);
+    session.setTotalAmount(totalAmount);
+    applyCashPaymentState(session, request.paymentMode());
+
+    Slot slot = session.getSlot();
+    slot.setStatus(SlotStatus.AVAILABLE);
+    slotRepository.save(slot);
+    parkingSessionRepository.save(session);
+
+    return CompleteExitResponse.builder()
+        .sessionId(session.getId())
+        .status(session.getStatus())
+        .plateNumber(session.getLicensePlate())
+        .cardCode(card.getCode())
+        .checkInAt(session.getCheckInAt())
+        .checkOutAt(session.getCheckOutAt())
+        .paymentMode(request.paymentMode())
+        .collectedAmount(request.collectedAmount())
+        .totalAmount(totalAmount)
+        .currency(preview.response().currency())
+        .slotCode(slot.getCode())
+        .slotStatus(slot.getStatus())
+        .cardStatus(card.getStatus())
+        .message("Exit completed. Gate can open.")
+        .build();
+  }
+
   private VehicleType resolveVehicleType(UUID vehicleTypeId, Slot slot) {
     if (vehicleTypeId != null) {
       VehicleType vehicleType =
@@ -146,6 +230,171 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
         .build();
   }
 
+  private StaffWorkContextResponse requireExitWorkContext() {
+    StaffWorkContextResponse workContext = staffWorkContextService.requireCurrentContext();
+    if (workContext.kioskType() != KioskType.EXIT && workContext.kioskType() != KioskType.MIXED) {
+      throw new ApiException(ErrorCode.FORBIDDEN_ACTION, "EXIT_KIOSK_REQUIRED");
+    }
+    return workContext;
+  }
+
+  private RfidCard getTenantCard(UUID tenantId, String cardCode) {
+    return rfidCardRepository
+        .findByTenantIdAndCodeIgnoreCase(tenantId, normalizeCardCode(cardCode))
+        .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "RFID_CARD_NOT_FOUND"));
+  }
+
+  private ParkingSession getActiveSessionForExit(UUID tenantId, RfidCard card) {
+    return parkingSessionRepository
+        .findActiveDetailByTenantAndRfidCardId(
+            tenantId, card.getId(), ParkingSessionStatus.ACTIVE, PageRequest.of(0, 1))
+        .stream()
+        .findFirst()
+        .orElseThrow(
+            () -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "NO_ACTIVE_SESSION_FOR_CARD"));
+  }
+
+  private void validateSessionInKioskParking(ParkingSession session, UUID kioskParkingId) {
+    if (!session.getParking().getId().equals(kioskParkingId)) {
+      throw new ApiException(ErrorCode.FORBIDDEN_ACTION, "SESSION_NOT_IN_KIOSK_PARKING");
+    }
+  }
+
+  private ExitPreview buildExitPreview(
+      ParkingSession session, RfidCard card, LocalDateTime evaluatedAt) {
+    PricingQuoteResponse quote =
+        pricingQuoteService.quote(
+            session.getTenant().getId(),
+            session.getParking().getId(),
+            session.getVehicleType().getId(),
+            session.getCheckInAt(),
+            evaluatedAt);
+    PricingRule pricingRule =
+        pricingRuleRepository
+            .findById(quote.pricingRuleId())
+            .orElseThrow(
+                () ->
+                    new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "PRICING_RULE_NOT_CONFIGURED"));
+
+    BigDecimal surcharge = BigDecimal.ZERO;
+    ExitDecision decision;
+    BigDecimal amountDue = BigDecimal.ZERO;
+    String message;
+
+    if (session.getPaymentStatus() == SessionPaymentStatus.PAID) {
+      if (session.getExitDeadline() != null && !evaluatedAt.isAfter(session.getExitDeadline())) {
+        decision = ExitDecision.ALLOW_EXIT;
+        message = "Paid online. Allow exit.";
+      } else {
+        decision = ExitDecision.GRACE_EXPIRED_SURCHARGE;
+        surcharge = pricingRule.getNextBlockPrice();
+        message = "Grace period expired. Collect surcharge.";
+      }
+    } else {
+      decision = ExitDecision.COLLECT_CASH;
+      amountDue = quote.amount();
+      message = "Cash payment required.";
+    }
+
+    ExitPreviewResponse response =
+        ExitPreviewResponse.builder()
+            .sessionId(session.getId())
+            .plateNumber(session.getLicensePlate())
+            .cardCode(card.getCode())
+            .parkingName(session.getParking().getName())
+            .floorName(
+                session.getSlot().getFloor() == null
+                    ? null
+                    : session.getSlot().getFloor().getName())
+            .zoneName(session.getZone().getName())
+            .slotCode(session.getSlot().getCode())
+            .checkInAt(session.getCheckInAt())
+            .paidAt(session.getPaidAt())
+            .exitDeadline(session.getExitDeadline())
+            .paymentStatus(session.getPaymentStatus())
+            .exitDecision(decision)
+            .amountDue(amountDue)
+            .surchargeAmount(surcharge)
+            .totalAmount(resolveCurrentPaidAmount(session, quote, surcharge, decision))
+            .currency(quote.currency())
+            .message(message)
+            .build();
+    return new ExitPreview(response, quote);
+  }
+
+  private BigDecimal resolveCurrentPaidAmount(
+      ParkingSession session,
+      PricingQuoteResponse quote,
+      BigDecimal surcharge,
+      ExitDecision decision) {
+    if (decision == ExitDecision.COLLECT_CASH) {
+      return quote.amount();
+    }
+    BigDecimal paid = session.getTotalAmount() == null ? BigDecimal.ZERO : session.getTotalAmount();
+    if (decision == ExitDecision.GRACE_EXPIRED_SURCHARGE) {
+      return paid.add(surcharge);
+    }
+    return paid;
+  }
+
+  private void validatePaymentMode(CompleteExitRequest request, ExitPreviewResponse preview) {
+    switch (request.paymentMode()) {
+      case ONLINE -> {
+        if (preview.exitDecision() != ExitDecision.ALLOW_EXIT) {
+          throw new ApiException(ErrorCode.INVALID_INPUT, "ONLINE_EXIT_NOT_ALLOWED");
+        }
+        if (request.collectedAmount().compareTo(BigDecimal.ZERO) != 0) {
+          throw new ApiException(ErrorCode.INVALID_INPUT, "ONLINE_COLLECTED_AMOUNT_MUST_BE_ZERO");
+        }
+      }
+      case CASH -> {
+        if (preview.exitDecision() != ExitDecision.COLLECT_CASH) {
+          throw new ApiException(ErrorCode.INVALID_INPUT, "CASH_EXIT_NOT_ALLOWED");
+        }
+        requireCollectedAtLeast(
+            request.collectedAmount(), preview.amountDue(), "CASH_AMOUNT_TOO_LOW");
+      }
+      case SURCHARGE_CASH -> {
+        if (preview.exitDecision() != ExitDecision.GRACE_EXPIRED_SURCHARGE) {
+          throw new ApiException(ErrorCode.INVALID_INPUT, "SURCHARGE_EXIT_NOT_ALLOWED");
+        }
+        requireCollectedAtLeast(
+            request.collectedAmount(), preview.surchargeAmount(), "SURCHARGE_AMOUNT_TOO_LOW");
+      }
+    }
+  }
+
+  private void requireCollectedAtLeast(
+      BigDecimal collectedAmount, BigDecimal requiredAmount, String message) {
+    if (collectedAmount.compareTo(requiredAmount) < 0) {
+      throw new ApiException(ErrorCode.INVALID_INPUT, message);
+    }
+  }
+
+  private BigDecimal finalTotalAmount(
+      ParkingSession session, CompleteExitRequest request, ExitPreviewResponse preview) {
+    return switch (request.paymentMode()) {
+      case ONLINE -> session.getTotalAmount() == null ? BigDecimal.ZERO : session.getTotalAmount();
+      case CASH -> preview.amountDue();
+      case SURCHARGE_CASH -> {
+        BigDecimal onlinePaid =
+            session.getTotalAmount() == null ? BigDecimal.ZERO : session.getTotalAmount();
+        yield onlinePaid.add(preview.surchargeAmount());
+      }
+    };
+  }
+
+  private void applyCashPaymentState(ParkingSession session, ExitPaymentMode paymentMode) {
+    if (paymentMode == ExitPaymentMode.CASH) {
+      session.setPaymentStatus(SessionPaymentStatus.CASH_COLLECTED);
+      session.setPaymentMethod("CASH");
+      session.setPaidAt(LocalDateTime.now());
+    } else if (paymentMode == ExitPaymentMode.SURCHARGE_CASH) {
+      session.setPaymentStatus(SessionPaymentStatus.SURCHARGE_COLLECTED);
+      session.setPaymentMethod("PAYOS+CASH");
+    }
+  }
+
   private UUID currentTenantId() {
     return TenantContext.getTenantId()
         .orElseThrow(() -> new ApiException(ErrorCode.UNAUTHENTICATED));
@@ -163,7 +412,16 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
     return plateNumber.trim().toUpperCase();
   }
 
+  private String normalizeCardCode(String cardCode) {
+    if (cardCode == null || cardCode.isBlank()) {
+      throw new ApiException(ErrorCode.INVALID_INPUT, "cardCode must not be blank");
+    }
+    return cardCode.trim();
+  }
+
   private String normalizeOptional(String value) {
     return value == null || value.isBlank() ? null : value.trim();
   }
+
+  private record ExitPreview(ExitPreviewResponse response, PricingQuoteResponse quote) {}
 }
