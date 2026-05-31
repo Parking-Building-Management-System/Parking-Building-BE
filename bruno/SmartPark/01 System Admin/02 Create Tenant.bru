@@ -1,0 +1,27 @@
+meta {
+  name: Create Tenant
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/admin/tenants
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{systemAdminToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "companyName": "SmartPark Demo Tenant",
+    "managerEmail": "manager.demo@example.com",
+    "initialPassword": "ChangeMe123!"
+  }
+}

@@ -1,0 +1,15 @@
+meta {
+  name: Get System Health Services
+  type: http
+  seq: 12
+}
+
+get {
+  url: {{baseUrl}}/admin/system-health/services
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{systemAdminToken}}
+}

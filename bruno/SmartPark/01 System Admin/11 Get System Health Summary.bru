@@ -1,0 +1,15 @@
+meta {
+  name: Get System Health Summary
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{baseUrl}}/admin/system-health/summary
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{systemAdminToken}}
+}

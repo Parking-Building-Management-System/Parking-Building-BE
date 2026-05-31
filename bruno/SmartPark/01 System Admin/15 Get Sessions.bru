@@ -1,0 +1,15 @@
+meta {
+  name: Get Sessions
+  type: http
+  seq: 15
+}
+
+get {
+  url: {{baseUrl}}/admin/sessions?page=0&size=20
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{systemAdminToken}}
+}
