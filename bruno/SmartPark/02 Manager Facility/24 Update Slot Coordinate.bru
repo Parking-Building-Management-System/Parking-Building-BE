@@ -1,0 +1,25 @@
+meta {
+  name: Update Slot Coordinate
+  type: http
+  seq: 24
+}
+
+patch {
+  url: {{baseUrl}}/manager/slots/{{slotId}}/coordinate
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "xCoordinate": 42.50,
+    "yCoordinate": 65.00
+  }
+}

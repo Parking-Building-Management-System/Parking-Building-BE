@@ -1,0 +1,15 @@
+meta {
+  name: Presign Storage Download
+  type: http
+  seq: 27
+}
+
+get {
+  url: {{baseUrl}}/manager/storage/presign-download?objectKey={{objectKey}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}

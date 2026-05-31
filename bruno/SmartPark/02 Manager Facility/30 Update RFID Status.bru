@@ -1,0 +1,24 @@
+meta {
+  name: Update RFID Status
+  type: http
+  seq: 30
+}
+
+patch {
+  url: {{baseUrl}}/manager/rfid-cards/{{rfidCardId}}/status
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "status": "ACTIVE"
+  }
+}

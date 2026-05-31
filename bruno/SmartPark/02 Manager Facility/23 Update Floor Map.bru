@@ -1,0 +1,28 @@
+meta {
+  name: Update Floor Map
+  type: http
+  seq: 23
+}
+
+patch {
+  url: {{baseUrl}}/manager/floors/{{floorId}}/map
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "mapImageUrl": "https://example.com/maps/b1.png"
+  }
+}
+
+docs {
+  Map upload flow: presign upload, PUT the file to the returned uploadUrl outside Bruno if needed, then update this mapImageUrl/object URL and fetch the map.
+}
