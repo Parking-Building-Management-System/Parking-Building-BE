@@ -57,8 +57,8 @@ Added to `parking_sessions`:
 - `paid_at`
 - `exit_deadline`
 
-`parking_sessions.status` remains `ACTIVE` after online payment. Staff Exit Gate will complete the
-session in a later phase.
+`parking_sessions.status` remains `ACTIVE` after online payment. Flow 2C Staff Exit Gate completes
+the session only after staff confirms exit.
 
 ## Endpoints
 
@@ -205,7 +205,7 @@ does not trust payloads that fail checksum verification.
 
 ## Limitations
 
-- No Staff Exit Gate completion yet.
+- Staff Exit Gate completion is handled by Flow 2C, not by PayOS webhook processing.
 - No surcharge after grace period.
 - No invoice generation.
 - No subscriptions.
