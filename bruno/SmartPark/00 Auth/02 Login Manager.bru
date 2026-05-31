@@ -1,0 +1,28 @@
+meta {
+  name: Login Manager
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "username": "manager@example.com",
+    "password": "change-me",
+    "deviceFingerprint": "bruno-manager-device",
+    "deviceLabel": "Bruno Manager"
+  }
+}
+
+docs {
+  Paste the returned access token into `managerToken`.
+}

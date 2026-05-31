@@ -1,0 +1,28 @@
+meta {
+  name: Login System Admin
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "username": "system.admin@example.com",
+    "password": "change-me",
+    "deviceFingerprint": "bruno-system-admin-device",
+    "deviceLabel": "Bruno System Admin"
+  }
+}
+
+docs {
+  Paste the returned access token into the `systemAdminToken` environment variable. Do not save real tokens in this file.
+}
