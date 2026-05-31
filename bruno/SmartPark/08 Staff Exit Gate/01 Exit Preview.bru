@@ -1,0 +1,28 @@
+meta {
+  name: Exit Preview
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/staff/parking-sessions/exit-preview
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{staffExitToken}}
+}
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "cardCode": "{{cardCode}}"
+  }
+}
+
+docs {
+  staffExitToken must belong to staff approved on an EXIT or ENTRY_EXIT kiosk. ENTRY kiosks should be rejected for exit flows.
+}

@@ -1,0 +1,28 @@
+meta {
+  name: Complete Online Exit
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/staff/parking-sessions/complete-exit
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{staffExitToken}}
+}
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "sessionId": "{{sessionId}}",
+    "cardCode": "{{cardCode}}",
+    "paymentMode": "ONLINE",
+    "collectedAmount": 0,
+    "note": "Paid online within grace period"
+  }
+}
