@@ -1,6 +1,8 @@
 package com.smartpark.swp391.modules.pwa.dto;
 
 import com.smartpark.swp391.modules.operation.enumType.ParkingSessionStatus;
+import com.smartpark.swp391.modules.operation.enumType.SessionPaymentStatus;
+import com.smartpark.swp391.modules.payment.dto.ExistingPaymentIntentResponse;
 import com.smartpark.swp391.modules.pricing.dto.PricingBreakdownItemResponse;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -31,4 +33,8 @@ public record CardCheckoutQuoteResponse(
     String pricingRuleName,
     List<PricingBreakdownItemResponse> pricingBreakdown,
     boolean paymentAvailable,
+    SessionPaymentStatus paymentStatus,
+    LocalDateTime paidAt,
+    LocalDateTime exitDeadline,
+    ExistingPaymentIntentResponse existingPaymentIntent,
     String nextAction) {}

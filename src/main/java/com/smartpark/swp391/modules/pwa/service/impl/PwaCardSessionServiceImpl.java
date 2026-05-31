@@ -6,6 +6,7 @@ import com.smartpark.swp391.infrastructure.storage.dto.PresignedDownload;
 import com.smartpark.swp391.infrastructure.storage.service.StorageService;
 import com.smartpark.swp391.modules.operation.entity.ParkingSession;
 import com.smartpark.swp391.modules.operation.enumType.ParkingSessionStatus;
+import com.smartpark.swp391.modules.operation.enumType.SessionPaymentStatus;
 import com.smartpark.swp391.modules.operation.repository.ParkingSessionRepository;
 import com.smartpark.swp391.modules.parking.entity.Floor;
 import com.smartpark.swp391.modules.parking.entity.Parking;
@@ -14,6 +15,8 @@ import com.smartpark.swp391.modules.parking.entity.Slot;
 import com.smartpark.swp391.modules.parking.entity.Zone;
 import com.smartpark.swp391.modules.parking.enumType.RfidCardStatus;
 import com.smartpark.swp391.modules.parking.repository.RfidCardRepository;
+import com.smartpark.swp391.modules.payment.dto.ExistingPaymentIntentResponse;
+import com.smartpark.swp391.modules.payment.service.PwaPaymentService;
 import com.smartpark.swp391.modules.pricing.dto.PricingQuoteResponse;
 import com.smartpark.swp391.modules.pricing.service.PricingQuoteService;
 import com.smartpark.swp391.modules.pwa.dto.CardActiveSessionResponse;
@@ -38,6 +41,7 @@ public class PwaCardSessionServiceImpl implements PwaCardSessionService {
   ParkingSessionRepository parkingSessionRepository;
   StorageService storageService;
   PricingQuoteService pricingQuoteService;
+  PwaPaymentService pwaPaymentService;
 
   @Override
   @Transactional(readOnly = true)
@@ -162,9 +166,41 @@ public class PwaCardSessionServiceImpl implements PwaCardSessionService {
         .pricingRuleId(quote.pricingRuleId())
         .pricingRuleName(quote.pricingRuleName())
         .pricingBreakdown(quote.pricingBreakdown())
-        .paymentAvailable(false)
-        .nextAction("PAYMENT_PENDING_IMPLEMENTATION")
+        .paymentAvailable(paymentAvailable(session, quote))
+        .paymentStatus(session.getPaymentStatus())
+        .paidAt(session.getPaidAt())
+        .exitDeadline(session.getExitDeadline())
+        .existingPaymentIntent(existingPaymentIntent(session, quote))
+        .nextAction(nextPaymentAction(session, quote))
         .build();
+  }
+
+  private boolean paymentAvailable(ParkingSession session, PricingQuoteResponse quote) {
+    if (session.getPaymentStatus() == SessionPaymentStatus.PAID) {
+      return false;
+    }
+    return pwaPaymentService.paymentProviderAvailable()
+        || existingPaymentIntent(session, quote) != null;
+  }
+
+  private ExistingPaymentIntentResponse existingPaymentIntent(
+      ParkingSession session, PricingQuoteResponse quote) {
+    return pwaPaymentService
+        .findReusablePendingIntent(session.getId(), quote.amount())
+        .orElse(null);
+  }
+
+  private String nextPaymentAction(ParkingSession session, PricingQuoteResponse quote) {
+    if (session.getPaymentStatus() == SessionPaymentStatus.PAID) {
+      return "EXIT_WITHIN_GRACE_PERIOD";
+    }
+    if (existingPaymentIntent(session, quote) != null) {
+      return "CONTINUE_PAYMENT";
+    }
+    if (!pwaPaymentService.paymentProviderAvailable()) {
+      return "PAYMENT_PROVIDER_DISABLED";
+    }
+    return "CREATE_PAYMENT_INTENT";
   }
 
   private String mapImageUrl(Floor floor) {
