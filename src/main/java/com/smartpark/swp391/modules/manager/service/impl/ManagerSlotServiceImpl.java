@@ -168,6 +168,9 @@ public class ManagerSlotServiceImpl implements ManagerSlotService {
     if (slots.size() != slotIds.size()) {
       throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "One or more slots were not found");
     }
+    if (slots.stream().anyMatch(slot -> !currentTenantId().equals(slot.getTenant().getId()))) {
+      throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "One or more slots were not found");
+    }
 
     Set<UUID> parkingIds = new HashSet<>();
     slots.forEach(slot -> parkingIds.add(slot.getParking().getId()));
@@ -495,7 +498,7 @@ public class ManagerSlotServiceImpl implements ManagerSlotService {
           key,
           ignored ->
               parkingRepository
-                  .findByCodeIgnoreCaseAndIsDeletedFalse(code.trim())
+                  .findByTenantIdAndCodeIgnoreCaseAndIsDeletedFalse(currentTenantId(), code.trim())
                   .orElseThrow(
                       () ->
                           new ApiException(
