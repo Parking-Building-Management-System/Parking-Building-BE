@@ -44,6 +44,8 @@ public class SecurityConfig {
 
   private static final String[] PUBLIC_PWA_ENDPOINTS = {"/pwa/**"};
 
+  private static final String[] PUBLIC_PAYMENT_WEBHOOK_ENDPOINTS = {"/payments/webhooks/payos"};
+
   @Bean
   public PasswordEncoder passwordEncoder() {
     return new BCryptPasswordEncoder(10);
@@ -80,6 +82,8 @@ public class SecurityConfig {
                 .requestMatchers(PUBLIC_AUTH_ENDPOINTS)
                 .permitAll()
                 .requestMatchers(PUBLIC_PWA_ENDPOINTS)
+                .permitAll()
+                .requestMatchers(PUBLIC_PAYMENT_WEBHOOK_ENDPOINTS)
                 .permitAll()
                 .requestMatchers("/ws/**")
                 .permitAll()
