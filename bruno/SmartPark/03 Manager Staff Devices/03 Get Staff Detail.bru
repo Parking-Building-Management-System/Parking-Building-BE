@@ -1,0 +1,15 @@
+meta {
+  name: Get Staff Detail
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/manager/staff/{{staffId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}

@@ -1,0 +1,26 @@
+meta {
+  name: Update Staff
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/manager/staff/{{staffId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "fullName": "Demo Staff Updated",
+    "phone": "0900000001",
+    "status": "ACTIVE"
+  }
+}

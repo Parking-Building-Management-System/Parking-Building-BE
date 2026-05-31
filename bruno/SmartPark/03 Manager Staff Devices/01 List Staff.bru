@@ -1,0 +1,15 @@
+meta {
+  name: List Staff
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/manager/staff?page=0&size=20
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
