@@ -1,0 +1,32 @@
+meta {
+  name: Check In Parking Session
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/staff/parking-sessions/check-in
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{staffEntryToken}}
+}
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "plateNumber": "30A-99125",
+    "cardCode": "{{cardCode}}",
+    "parkingId": "{{parkingId}}",
+    "vehicleTypeId": "{{vehicleTypeId}}",
+    "entryImageUrl": "https://example.com/entry/30A-99125.jpg"
+  }
+}
+
+docs {
+  Expected response includes sessionId, qrToken, pwaAccessPath, assignedSlotCode, and zoneName. Copy sessionId and qrToken into the environment.
+}

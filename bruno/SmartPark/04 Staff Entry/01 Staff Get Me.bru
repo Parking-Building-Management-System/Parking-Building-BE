@@ -1,0 +1,19 @@
+meta {
+  name: Staff Get Me
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/auth/me
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{staffEntryToken}}
+}
+
+docs {
+  Confirms the entry staff identity and trusted device context.
+}
