@@ -1,0 +1,20 @@
+meta {
+  name: Flow 2B PayOS Payment
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/pwa/payment-intents/{{paymentOrderCode}}
+  body: none
+  auth: none
+}
+
+docs {
+  Manual sequence:
+  1. Run `07 PWA Payment PayOS / Create Payment Intent`.
+  2. Copy `orderCode` into `paymentOrderCode`.
+  3. Open `checkoutUrl` in a browser and complete payment in the PayOS sandbox/dashboard.
+  4. PayOS sends the real webhook to `/payments/webhooks/payos`.
+  5. Poll this request until status is PAID and exitDeadline is present.
+}

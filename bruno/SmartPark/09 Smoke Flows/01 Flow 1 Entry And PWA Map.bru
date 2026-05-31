@@ -1,0 +1,19 @@
+meta {
+  name: Flow 1 Entry And PWA Map
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/pwa/cards/{{qrToken}}/active-session
+  body: none
+  auth: none
+}
+
+docs {
+  Manual sequence:
+  1. Login staff with an approved ENTRY kiosk device and set `staffEntryToken`.
+  2. Run `04 Staff Entry / Check In Parking Session`.
+  3. Copy `sessionId` and `qrToken` into the environment.
+  4. Run this request and verify parking, floor, zone, slot, mapDisplayUrl, and slot coordinates.
+}
