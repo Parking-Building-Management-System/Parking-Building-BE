@@ -1,0 +1,29 @@
+meta {
+  name: Approve Device With Kiosk
+  type: http
+  seq: 18
+}
+
+post {
+  url: {{baseUrl}}/manager/device-approvals/{{deviceApprovalId}}/approve
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "kioskId": "{{kioskId}}",
+    "expiresAt": null
+  }
+}
+
+docs {
+  Staff Entry and Staff Exit requests require a trusted staff device. Use the entry kiosk for `staffEntryToken`; use an EXIT or ENTRY_EXIT kiosk for `staffExitToken`.
+}
