@@ -155,3 +155,5 @@ Expected result: HTTP 400 validation/API error.
 - No indoor pathfinding.
 - No image moderation, malware scanning, or server-side fetch validation for external URLs.
 - Private MinIO objects should be displayed through presigned download URLs unless a public bucket policy is intentionally added later.
+- Facility overview does not have a mapped-slot count endpoint; FE can count
+  `GET /manager/floors/{id}/map.slots[*].hasCoordinate` per floor.

@@ -196,6 +196,10 @@ Migration `V20260526180000__manager_kiosk_device_mvp.sql` adds:
 - Device approval lists pending devices only; approved/rejected history filtering is not implemented.
 - Device revoke sets `status = SUSPENDED` and clears `kiosk_id`; it does not currently revoke already-active sessions for that device.
 - Temporary approval timestamps follow the existing backend `LocalDateTime` JSON convention. Send a future ISO timestamp without relying on client-side timezone offset adjustment.
+- There is no manager-level Kill Switch API yet for active staff session list, one-session revoke,
+  or force logout. System Admin has security APIs, but they are not manager-scoped.
+- There is no compact pending approval count endpoint; FE can count `GET /manager/device-approvals`
+  until a summary/count endpoint is added.
 
 ## SQL Validation Queries
 

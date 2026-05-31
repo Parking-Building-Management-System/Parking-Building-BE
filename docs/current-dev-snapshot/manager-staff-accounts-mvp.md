@@ -236,7 +236,10 @@ HAVING COUNT(*) > 1;
 ## Known Limitations
 
 - Username is globally unique because the current `users.username` constraint is global.
-- There is no manager device approval flow yet, so newly created staff cannot login until an approved device exists.
-- Staff is not assigned to kiosk/gate/shift by this MVP.
+- Staff account APIs do not create devices; newly created staff cannot login until a pending device
+  is approved and bound to a kiosk.
+- Kiosk assignment exists in the Manager Kiosk / Device MVP, but shift selection is not exposed yet.
+- There is no manager-level active staff session list or force logout endpoint yet; deactivate and
+  password reset still revoke active sessions for the affected staff user.
 - There is no delete endpoint; use `INACTIVE` or `SUSPENDED` status.
 - Password strength policy is limited to request validation and existing password encoder behavior.
