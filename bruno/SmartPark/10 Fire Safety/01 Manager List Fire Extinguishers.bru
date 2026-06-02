@@ -1,0 +1,15 @@
+meta {
+  name: Manager List Fire Extinguishers
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/manager/fire-extinguishers?parkingId={{parkingId}}&page=0&size=20
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}

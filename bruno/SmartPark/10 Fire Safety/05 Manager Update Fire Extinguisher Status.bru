@@ -1,0 +1,26 @@
+meta {
+  name: Manager Update Fire Extinguisher Status
+  type: http
+  seq: 5
+}
+
+patch {
+  url: {{baseUrl}}/manager/fire-extinguishers/{{fireExtinguisherId}}/status
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "status": "MAINTENANCE",
+    "note": "Sent to maintenance"
+  }
+}

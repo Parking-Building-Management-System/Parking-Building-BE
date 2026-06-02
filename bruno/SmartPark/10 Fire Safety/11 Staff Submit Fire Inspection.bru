@@ -1,0 +1,33 @@
+meta {
+  name: Staff Submit Fire Inspection
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/staff/fire-inspections
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{staffEntryToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "fireExtinguisherId": "{{fireExtinguisherId}}",
+    "result": "OK",
+    "pressureOk": true,
+    "sealOk": true,
+    "locationOk": true,
+    "expiryOk": true,
+    "photoUrl": "https://example.com/fire-inspections/demo.jpg",
+    "note": "Looks good",
+    "nextInspectionAt": "2026-07-01T00:00:00"
+  }
+}

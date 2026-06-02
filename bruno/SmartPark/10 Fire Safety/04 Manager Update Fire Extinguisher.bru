@@ -1,0 +1,37 @@
+meta {
+  name: Manager Update Fire Extinguisher
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/manager/fire-extinguishers/{{fireExtinguisherId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "parkingId": "{{parkingId}}",
+    "floorId": "{{floorId}}",
+    "zoneId": "{{zoneId}}",
+    "code": "FE-DEMO-999",
+    "type": "POWDER",
+    "locationDescription": "Near stairwell",
+    "xCoordinate": 66.00,
+    "yCoordinate": 42.00,
+    "manufactureDate": "2025-01-01",
+    "expiryDate": "2027-01-01",
+    "nextInspectionAt": "2026-07-15T00:00:00",
+    "status": "ACTIVE",
+    "note": "Updated from Bruno"
+  }
+}

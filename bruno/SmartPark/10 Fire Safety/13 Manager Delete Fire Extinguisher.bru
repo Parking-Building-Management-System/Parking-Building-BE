@@ -1,0 +1,15 @@
+meta {
+  name: Manager Delete Fire Extinguisher
+  type: http
+  seq: 13
+}
+
+delete {
+  url: {{baseUrl}}/manager/fire-extinguishers/{{fireExtinguisherId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}

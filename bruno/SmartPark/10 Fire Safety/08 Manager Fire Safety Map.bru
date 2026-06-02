@@ -1,0 +1,15 @@
+meta {
+  name: Manager Fire Safety Map
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/manager/floors/{{floorId}}/fire-safety-map
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}

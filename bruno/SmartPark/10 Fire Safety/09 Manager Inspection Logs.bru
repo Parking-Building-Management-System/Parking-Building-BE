@@ -1,0 +1,15 @@
+meta {
+  name: Manager Inspection Logs
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/manager/fire-inspections/logs?parkingId={{parkingId}}&page=0&size=20
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
