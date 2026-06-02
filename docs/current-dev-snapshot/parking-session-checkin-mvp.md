@@ -12,6 +12,30 @@ Role: `STAFF`.
 
 Tenant source: authenticated JWT claim `tenant_id`. The request does not accept `tenantId`.
 
+## Available RFID Cards
+
+Staff Entry can load card dropdown options before check-in:
+
+```http
+GET /staff/rfid-cards/available?search=BCONS&limit=50
+Authorization: Bearer <staff-access-token>
+```
+
+The backend resolves the current staff kiosk parking from the approved device/session context. Returned cards are `ACTIVE` tenant cards that are not used by an `ACTIVE` parking session in that parking.
+
+```json
+[
+  {
+    "id": "card-id",
+    "code": "BCONS-0001",
+    "label": "BCONS-0001",
+    "status": "ACTIVE"
+  }
+]
+```
+
+After a successful check-in, frontend should refetch this endpoint so the selected card disappears from the dropdown.
+
 ## Request Sample
 
 ```json
