@@ -1,0 +1,15 @@
+meta {
+  name: Manager Get Fire Extinguisher
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/manager/fire-extinguishers/{{fireExtinguisherId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}

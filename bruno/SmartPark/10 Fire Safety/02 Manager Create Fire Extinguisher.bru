@@ -1,0 +1,37 @@
+meta {
+  name: Manager Create Fire Extinguisher
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/manager/fire-extinguishers
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "parkingId": "{{parkingId}}",
+    "floorId": "{{floorId}}",
+    "zoneId": "{{zoneId}}",
+    "code": "FE-DEMO-999",
+    "type": "CO2",
+    "locationDescription": "Near elevator",
+    "xCoordinate": 64.25,
+    "yCoordinate": 41.75,
+    "manufactureDate": "2025-01-01",
+    "expiryDate": "2027-01-01",
+    "nextInspectionAt": "2026-07-01T00:00:00",
+    "status": "ACTIVE",
+    "note": "Bruno demo extinguisher"
+  }
+}

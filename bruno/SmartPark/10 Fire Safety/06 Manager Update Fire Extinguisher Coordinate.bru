@@ -1,0 +1,26 @@
+meta {
+  name: Manager Update Fire Extinguisher Coordinate
+  type: http
+  seq: 6
+}
+
+patch {
+  url: {{baseUrl}}/manager/fire-extinguishers/{{fireExtinguisherId}}/coordinate
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "xCoordinate": 64.25,
+    "yCoordinate": 41.75
+  }
+}
