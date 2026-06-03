@@ -25,6 +25,12 @@ All manager APIs require `PARKING_MANAGER`; tenant comes from JWT.
 
 Filters: `parkingId`, `floorId`, `zoneId`, `status`, `type`, `search`, `expiringWithinDays`, `page`, `size`.
 
+Search behavior:
+
+- Omitted, `null`, and blank `search` are treated as no search and return the normal filtered list.
+- Nonblank `search` is trimmed and matched case-insensitively against `code` and `locationDescription`.
+- Production fix: the list path no longer sends nullable search into the PostgreSQL `lower/like` expression, avoiding `function lower(bytea) does not exist` when search is empty.
+
 `POST /manager/fire-extinguishers`
 
 ```json
@@ -139,6 +145,11 @@ Returns extinguishers in the current staff parking with `nextInspectionAt <= now
 }
 ```
 
+Photo handling:
+
+- Current MVP stores `photoUrl` only; staff inspection submit does not upload a file directly.
+- Future improvement: mobile FE can upload through the existing storage presign flow, then submit the resulting URL/object key in `photoUrl`.
+
 Status update rules:
 
 - `OK` -> `ACTIVE`, unless `expiryDate` is already past, then `EXPIRED`
@@ -183,3 +194,22 @@ FE should call this when opening Staff Entry and refetch after successful check-
 - Parking, floor, and zone are tenant validated. Zone must belong to the selected floor.
 - `photoUrl` is accepted as a string only; no upload endpoint is added in this MVP.
 - RFID cards are not parking-owned in the current schema, so availability is tenant-scoped and excludes cards used by active sessions in the current staff parking.
+
+## Smoke Test Checklist
+
+Run backend locally on port 8081 and authenticate with a manager token. Do not print or commit real tokens.
+
+- `GET /manager/fire-extinguishers`
+- `GET /manager/fire-extinguishers?search=`
+- `GET /manager/fire-extinguishers?search=FE`
+- `GET /manager/fire-extinguishers/summary`
+- `GET /manager/floors/{floorId}/fire-safety-map`
+
+Expected manager result: no 500 responses, success wrapper code `1000`, seeded extinguishers present, and map items include `xCoordinate`/`yCoordinate`.
+
+If a staff token with approved staff device/workContext is available:
+
+- `GET /staff/fire-inspections/due`
+- `POST /staff/fire-inspections` with a safe test extinguisher
+
+If no staff token/context is available, mobile staff smoke testing requires an approved staff device/workContext before these APIs can be exercised.
