@@ -33,10 +33,12 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.EnumMap;
+import java.util.Locale;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -68,17 +70,23 @@ public class ManagerFireExtinguisherServiceImpl implements ManagerFireExtinguish
       int size) {
     LocalDate expiringUntil =
         expiringWithinDays == null ? null : LocalDate.now().plusDays(expiringWithinDays);
-    var result =
-        fireExtinguisherRepository.search(
-            currentTenantId(),
-            parkingId,
-            floorId,
-            zoneId,
-            status,
-            type,
-            trimToNull(search),
-            expiringUntil,
-            PageRequest.of(page, size, Sort.by("code").ascending()));
+    UUID tenantId = currentTenantId();
+    String normalizedSearch = normalizeSearch(search);
+    PageRequest pageable = PageRequest.of(page, size, Sort.by("code").ascending());
+    Page<FireExtinguisher> result =
+        normalizedSearch == null
+            ? fireExtinguisherRepository.findByFilters(
+                tenantId, parkingId, floorId, zoneId, status, type, expiringUntil, pageable)
+            : fireExtinguisherRepository.searchByText(
+                tenantId,
+                parkingId,
+                floorId,
+                zoneId,
+                status,
+                type,
+                normalizedSearch,
+                expiringUntil,
+                pageable);
     return new PageResponse<>(
         result.getContent().stream().map(this::toResponse).toList(),
         result.getNumber(),
@@ -398,6 +406,11 @@ public class ManagerFireExtinguisherServiceImpl implements ManagerFireExtinguish
 
   private String trimToNull(String value) {
     return value == null || value.isBlank() ? null : value.trim();
+  }
+
+  private String normalizeSearch(String value) {
+    String trimmed = trimToNull(value);
+    return trimmed == null ? null : trimmed.toLowerCase(Locale.ROOT);
   }
 
   private Tenant currentTenantReference() {
