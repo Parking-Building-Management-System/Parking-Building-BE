@@ -1,0 +1,30 @@
+meta {
+  name: Staff Presign Inspection Photo Upload
+  type: http
+  seq: 16
+}
+
+post {
+  url: {{baseUrl}}/staff/fire-inspections/photos/presign-upload
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{staffEntryToken}}
+}
+
+body:json {
+  {
+    "fileName": "fe-b1-001-check.jpg",
+    "contentType": "image/jpeg"
+  }
+}
+
+docs {
+  Use the returned uploadUrl for a PUT upload, then paste objectKey into `inspectionPhotoObjectKey`.
+}

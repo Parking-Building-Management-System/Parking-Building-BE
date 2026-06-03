@@ -13,5 +13,8 @@ public record StaffFireInspectionResponse(
     String code,
     FireInspectionResult result,
     FireExtinguisherStatus status,
+    String photoObjectKey,
+    String photoDisplayUrl,
+    Long photoUrlExpiresInSeconds,
     LocalDateTime inspectedAt,
     LocalDateTime nextInspectionAt) {}

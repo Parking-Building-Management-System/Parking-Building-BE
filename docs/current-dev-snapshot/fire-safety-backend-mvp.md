@@ -5,7 +5,7 @@
 Fire extinguishers are tenant-scoped assets pinned to the existing facility hierarchy:
 
 - `fire_extinguishers`: tenant, parking, floor, optional zone, code, type, status, location, percent map coordinates, manufacture/expiry dates, inspection timestamps, note, soft delete.
-- `fire_extinguisher_inspections`: tenant, extinguisher, optional inspecting user, inspection result, checklist booleans, optional photo URL, note, inspected timestamp, next inspection timestamp.
+- `fire_extinguisher_inspections`: tenant, extinguisher, optional inspecting user, inspection result, checklist booleans, optional legacy photo URL, optional storage photo object key, note, inspected timestamp, next inspection timestamp.
 
 Enums:
 
@@ -24,6 +24,12 @@ All manager APIs require `PARKING_MANAGER`; tenant comes from JWT.
 `GET /manager/fire-extinguishers`
 
 Filters: `parkingId`, `floorId`, `zoneId`, `status`, `type`, `search`, `expiringWithinDays`, `page`, `size`.
+
+Search behavior:
+
+- Omitted, `null`, and blank `search` are treated as no search and return the normal filtered list.
+- Nonblank `search` is trimmed and matched case-insensitively against `code` and `locationDescription`.
+- Production fix: the list path no longer sends nullable search into the PostgreSQL `lower/like` expression, avoiding `function lower(bytea) does not exist` when search is empty.
 
 `POST /manager/fire-extinguishers`
 
@@ -109,6 +115,13 @@ Returns floor map metadata and extinguisher pins. It reuses `floors.map_image_ur
 
 Filters: `extinguisherId`, `parkingId`, `floorId`, `result`, `from`, `to`, `page`, `size`.
 
+Photo fields:
+
+- `photoUrl`: legacy URL, if submitted.
+- `photoObjectKey`: private object key for uploaded inspection photos.
+- `photoDisplayUrl`: presigned download URL for object-key photos, or legacy HTTP(S) `photoUrl`.
+- `photoUrlExpiresInSeconds`: set for presigned display URLs.
+
 ## Staff APIs
 
 All staff APIs require `STAFF`; tenant and parking are resolved from the approved staff kiosk/device context.
@@ -134,10 +147,30 @@ Returns extinguishers in the current staff parking with `nextInspectionAt <= now
   "locationOk": true,
   "expiryOk": true,
   "photoUrl": "https://example.com/photo.jpg",
+  "photoObjectKey": "tenants/{tenantId}/fire-inspections/{staffId}/{uuid}-photo.jpg",
   "note": "Looks good",
   "nextInspectionAt": "2026-07-01T00:00:00"
 }
 ```
+
+Photo handling:
+
+- Preferred flow uses `POST /staff/fire-inspections/photos/presign-upload`, browser/mobile `PUT` to the returned `uploadUrl`, then inspection submit with `photoObjectKey`.
+- `photoUrl` remains accepted for backward compatibility.
+- The backend does not accept binary multipart upload on inspection submit.
+
+### Presign Inspection Photo Upload
+
+`POST /staff/fire-inspections/photos/presign-upload`
+
+```json
+{
+  "fileName": "fe-b1-001-check.jpg",
+  "contentType": "image/jpeg"
+}
+```
+
+Returns a presigned PUT URL and generated object key under `tenants/{tenantId}/fire-inspections/{staffId}/`. Allowed content types are `image/jpeg`, `image/png`, and `image/webp`; extension must match content type.
 
 Status update rules:
 
@@ -181,5 +214,26 @@ FE should call this when opening Staff Entry and refetch after successful check-
 
 - Codes are unique per tenant among non-deleted extinguishers.
 - Parking, floor, and zone are tenant validated. Zone must belong to the selected floor.
-- `photoUrl` is accepted as a string only; no upload endpoint is added in this MVP.
+- `photoObjectKey` must stay under `tenants/{tenantId}/fire-inspections/`; clients cannot choose arbitrary storage folders.
+- `photoUrl` is legacy-compatible; new flows should use presign upload and `photoObjectKey`.
 - RFID cards are not parking-owned in the current schema, so availability is tenant-scoped and excludes cards used by active sessions in the current staff parking.
+
+## Smoke Test Checklist
+
+Run backend locally on port 8081 and authenticate with a manager token. Do not print or commit real tokens.
+
+- `GET /manager/fire-extinguishers`
+- `GET /manager/fire-extinguishers?search=`
+- `GET /manager/fire-extinguishers?search=FE`
+- `GET /manager/fire-extinguishers/summary`
+- `GET /manager/floors/{floorId}/fire-safety-map`
+
+Expected manager result: no 500 responses, success wrapper code `1000`, seeded extinguishers present, and map items include `xCoordinate`/`yCoordinate`.
+
+If a staff token with approved staff device/workContext is available:
+
+- `POST /staff/fire-inspections/photos/presign-upload`
+- `GET /staff/fire-inspections/due`
+- `POST /staff/fire-inspections` with a safe test extinguisher
+
+If no staff token/context is available, mobile staff smoke testing requires an approved staff device/workContext before these APIs can be exercised.

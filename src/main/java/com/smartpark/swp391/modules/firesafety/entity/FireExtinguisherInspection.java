@@ -56,6 +56,9 @@ public class FireExtinguisherInspection extends TenantScopedEntity {
   @Column(name = "photo_url", columnDefinition = "text")
   private String photoUrl;
 
+  @Column(name = "photo_object_key", columnDefinition = "text")
+  private String photoObjectKey;
+
   @Column(columnDefinition = "text")
   private String note;
 

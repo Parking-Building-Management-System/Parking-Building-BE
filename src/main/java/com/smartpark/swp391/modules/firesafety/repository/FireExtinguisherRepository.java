@@ -38,13 +38,38 @@ public interface FireExtinguisherRepository extends JpaRepository<FireExtinguish
             AND (:status IS NULL OR fe.status = :status)
             AND (:type IS NULL OR fe.type = :type)
             AND (:expiringUntil IS NULL OR fe.expiryDate <= :expiringUntil)
+          """)
+  Page<FireExtinguisher> findByFilters(
+      @Param("tenantId") UUID tenantId,
+      @Param("parkingId") UUID parkingId,
+      @Param("floorId") UUID floorId,
+      @Param("zoneId") UUID zoneId,
+      @Param("status") FireExtinguisherStatus status,
+      @Param("type") FireExtinguisherType type,
+      @Param("expiringUntil") LocalDate expiringUntil,
+      Pageable pageable);
+
+  @Query(
+      """
+          SELECT fe
+          FROM FireExtinguisher fe
+          JOIN FETCH fe.parking p
+          JOIN FETCH fe.floor f
+          LEFT JOIN FETCH fe.zone z
+          WHERE fe.tenant.id = :tenantId
+            AND fe.deleted = false
+            AND (:parkingId IS NULL OR p.id = :parkingId)
+            AND (:floorId IS NULL OR f.id = :floorId)
+            AND (:zoneId IS NULL OR z.id = :zoneId)
+            AND (:status IS NULL OR fe.status = :status)
+            AND (:type IS NULL OR fe.type = :type)
+            AND (:expiringUntil IS NULL OR fe.expiryDate <= :expiringUntil)
             AND (
-              :search IS NULL OR
-              lower(fe.code) LIKE lower(concat('%', :search, '%')) OR
-              lower(coalesce(fe.locationDescription, '')) LIKE lower(concat('%', :search, '%'))
+              lower(fe.code) LIKE concat('%', :search, '%') OR
+              lower(coalesce(fe.locationDescription, '')) LIKE concat('%', :search, '%')
             )
           """)
-  Page<FireExtinguisher> search(
+  Page<FireExtinguisher> searchByText(
       @Param("tenantId") UUID tenantId,
       @Param("parkingId") UUID parkingId,
       @Param("floorId") UUID floorId,

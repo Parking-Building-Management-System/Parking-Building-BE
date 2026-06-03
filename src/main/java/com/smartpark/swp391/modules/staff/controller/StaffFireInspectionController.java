@@ -6,6 +6,8 @@ import com.smartpark.swp391.modules.firesafety.enumType.FireExtinguisherStatus;
 import com.smartpark.swp391.modules.staff.dto.firesafety.StaffFireInspectionDueResponse;
 import com.smartpark.swp391.modules.staff.dto.firesafety.StaffFireInspectionRequest;
 import com.smartpark.swp391.modules.staff.dto.firesafety.StaffFireInspectionResponse;
+import com.smartpark.swp391.modules.staff.dto.firesafety.StaffInspectionPhotoPresignRequest;
+import com.smartpark.swp391.modules.staff.dto.firesafety.StaffInspectionPhotoPresignResponse;
 import com.smartpark.swp391.modules.staff.service.StaffFireInspectionService;
 import com.smartpark.swp391.modules.staff.support.StaffTenantContext;
 import io.swagger.v3.oas.annotations.Operation;
@@ -62,6 +64,16 @@ public class StaffFireInspectionController {
     return ok(
         "/staff/fire-inspections",
         staffTenantContext.call(jwt, () -> staffFireInspectionService.submitInspection(request)));
+  }
+
+  @PostMapping("/photos/presign-upload")
+  @Operation(summary = "Create presigned upload URL for a fire inspection photo")
+  public ResponseEntity<ApiResponse<StaffInspectionPhotoPresignResponse>> presignInspectionPhoto(
+      @Valid @RequestBody StaffInspectionPhotoPresignRequest request,
+      @AuthenticationPrincipal Jwt jwt) {
+    return ok(
+        "/staff/fire-inspections/photos/presign-upload",
+        staffTenantContext.call(jwt, () -> staffFireInspectionService.createPhotoUpload(request)));
   }
 
   private <T> ResponseEntity<ApiResponse<T>> ok(String path, T result) {
