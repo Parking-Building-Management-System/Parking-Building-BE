@@ -2,6 +2,9 @@ package com.smartpark.swp391.modules.manager.service.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -33,6 +36,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 @ExtendWith(MockitoExtension.class)
 class ManagerFireExtinguisherServiceImplTest {
@@ -55,6 +62,70 @@ class ManagerFireExtinguisherServiceImplTest {
   @AfterEach
   void tearDown() {
     TenantContext.clear();
+  }
+
+  @Test
+  void listWithNullSearchUsesNoSearchQuery() {
+    PageRequest pageable = PageRequest.of(0, 20, Sort.by("code").ascending());
+    when(fireExtinguisherRepository.findByFilters(
+            eq(data.tenant().getId()),
+            isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
+            eq(pageable)))
+        .thenReturn(pageOf(data.extinguisher(), pageable));
+
+    var result = service().getExtinguishers(null, null, null, null, null, null, null, 0, 20);
+
+    assertThat(result.content()).extracting("code").containsExactly("FE-B1-001");
+    verify(fireExtinguisherRepository, never())
+        .searchByText(any(), any(), any(), any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  void listWithBlankSearchUsesNoSearchQuery() {
+    PageRequest pageable = PageRequest.of(0, 20, Sort.by("code").ascending());
+    when(fireExtinguisherRepository.findByFilters(
+            eq(data.tenant().getId()),
+            isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
+            eq(pageable)))
+        .thenReturn(pageOf(data.extinguisher(), pageable));
+
+    var result = service().getExtinguishers(null, null, null, null, null, "   ", null, 0, 20);
+
+    assertThat(result.content()).extracting("code").containsExactly("FE-B1-001");
+    verify(fireExtinguisherRepository, never())
+        .searchByText(any(), any(), any(), any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  void listWithSearchUsesLowercaseSearchQuery() {
+    PageRequest pageable = PageRequest.of(0, 20, Sort.by("code").ascending());
+    when(fireExtinguisherRepository.searchByText(
+            eq(data.tenant().getId()),
+            isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
+            eq("fe-b1"),
+            isNull(),
+            eq(pageable)))
+        .thenReturn(pageOf(data.extinguisher(), pageable));
+
+    var result = service().getExtinguishers(null, null, null, null, null, " FE-B1 ", null, 0, 20);
+
+    assertThat(result.content()).extracting("code").containsExactly("FE-B1-001");
+    verify(fireExtinguisherRepository, never())
+        .findByFilters(any(), any(), any(), any(), any(), any(), any(), any(Pageable.class));
   }
 
   @Test
@@ -162,6 +233,10 @@ class ManagerFireExtinguisherServiceImplTest {
         null,
         FireExtinguisherStatus.ACTIVE,
         null);
+  }
+
+  private PageImpl<FireExtinguisher> pageOf(FireExtinguisher extinguisher, PageRequest pageable) {
+    return new PageImpl<>(List.of(extinguisher), pageable, 1);
   }
 
   private TestData testData() {
