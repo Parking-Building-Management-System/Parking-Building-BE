@@ -1,0 +1,19 @@
+meta {
+  name: Manager Inspection Logs Result Filter
+  type: http
+  seq: 20
+}
+
+get {
+  url: {{baseUrl}}/manager/fire-inspections/logs?result=OK&page=0&size=20
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+
+docs {
+  Regression smoke: result filter should return only matching inspection results and no SQL type errors.
+}

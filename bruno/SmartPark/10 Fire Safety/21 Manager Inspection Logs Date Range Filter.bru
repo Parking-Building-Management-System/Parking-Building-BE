@@ -1,0 +1,19 @@
+meta {
+  name: Manager Inspection Logs Date Range Filter
+  type: http
+  seq: 21
+}
+
+get {
+  url: {{baseUrl}}/manager/fire-inspections/logs?from=2026-01-01T00:00:00&to=2026-12-31T23:59:59&page=0&size=20
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+
+docs {
+  Regression smoke: date filters should be applied only when supplied and should work when no rows match.
+}

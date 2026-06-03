@@ -1,0 +1,19 @@
+meta {
+  name: Manager Inspection Logs No Filters
+  type: http
+  seq: 19
+}
+
+get {
+  url: {{baseUrl}}/manager/fire-inspections/logs?page=0&size=20
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+
+docs {
+  Regression smoke: omitted filters should behave like null filters and must not return SQL type errors.
+}
