@@ -10,10 +10,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.smartpark.swp391.common.exception.ApiException;
+import com.smartpark.swp391.infrastructure.storage.dto.PresignedDownload;
+import com.smartpark.swp391.infrastructure.storage.service.StorageService;
 import com.smartpark.swp391.infrastructure.tenant.TenantContext;
 import com.smartpark.swp391.modules.firesafety.entity.FireExtinguisher;
+import com.smartpark.swp391.modules.firesafety.entity.FireExtinguisherInspection;
 import com.smartpark.swp391.modules.firesafety.enumType.FireExtinguisherStatus;
 import com.smartpark.swp391.modules.firesafety.enumType.FireExtinguisherType;
+import com.smartpark.swp391.modules.firesafety.enumType.FireInspectionResult;
 import com.smartpark.swp391.modules.firesafety.repository.FireExtinguisherInspectionRepository;
 import com.smartpark.swp391.modules.firesafety.repository.FireExtinguisherRepository;
 import com.smartpark.swp391.modules.identity.entity.Tenant;
@@ -50,6 +54,7 @@ class ManagerFireExtinguisherServiceImplTest {
   @Mock FloorRepository floorRepository;
   @Mock ZoneRepository zoneRepository;
   @Mock TenantRepository tenantRepository;
+  @Mock StorageService storageService;
 
   TestData data;
 
@@ -208,6 +213,64 @@ class ManagerFireExtinguisherServiceImplTest {
     assertThat(map.extinguishers().getFirst().hasCoordinate()).isTrue();
   }
 
+  @Test
+  void inspectionLogsReturnPresignedPhotoDisplayUrlForObjectKey() {
+    String objectKey = "tenants/" + data.tenant().getId() + "/fire-inspections/staff/photo.jpg";
+    FireExtinguisherInspection inspection = inspection(data.extinguisher());
+    inspection.setPhotoObjectKey(objectKey);
+    PageRequest pageable = PageRequest.of(0, 20, Sort.by("inspectedAt").descending());
+    when(inspectionRepository.searchLogs(
+            eq(data.tenant().getId()),
+            isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
+            eq(pageable)))
+        .thenReturn(new PageImpl<>(List.of(inspection), pageable, 1));
+    when(storageService.createPresignedDownload(data.tenant().getId(), objectKey))
+        .thenReturn(
+            PresignedDownload.builder()
+                .downloadUrl("https://storage/view")
+                .expiresInSeconds(900)
+                .build());
+
+    var logs = service().getInspectionLogs(null, null, null, null, null, null, 0, 20);
+
+    assertThat(logs.content()).hasSize(1);
+    assertThat(logs.content().getFirst().photoObjectKey()).isEqualTo(objectKey);
+    assertThat(logs.content().getFirst().photoDisplayUrl()).isEqualTo("https://storage/view");
+    assertThat(logs.content().getFirst().photoUrlExpiresInSeconds()).isEqualTo(900);
+  }
+
+  @Test
+  void inspectionLogsReturnLegacyHttpPhotoUrlAsDisplayUrl() {
+    FireExtinguisherInspection inspection = inspection(data.extinguisher());
+    inspection.setPhotoUrl("https://example.com/fire-inspections/demo.jpg");
+    PageRequest pageable = PageRequest.of(0, 20, Sort.by("inspectedAt").descending());
+    when(inspectionRepository.searchLogs(
+            eq(data.tenant().getId()),
+            isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
+            eq(pageable)))
+        .thenReturn(new PageImpl<>(List.of(inspection), pageable, 1));
+
+    var logs = service().getInspectionLogs(null, null, null, null, null, null, 0, 20);
+
+    assertThat(logs.content()).hasSize(1);
+    assertThat(logs.content().getFirst().photoUrl())
+        .isEqualTo("https://example.com/fire-inspections/demo.jpg");
+    assertThat(logs.content().getFirst().photoDisplayUrl())
+        .isEqualTo("https://example.com/fire-inspections/demo.jpg");
+    assertThat(logs.content().getFirst().photoUrlExpiresInSeconds()).isNull();
+    verify(storageService, never()).createPresignedDownload(any(), any());
+  }
+
   private ManagerFireExtinguisherServiceImpl service() {
     return new ManagerFireExtinguisherServiceImpl(
         fireExtinguisherRepository,
@@ -215,7 +278,8 @@ class ManagerFireExtinguisherServiceImplTest {
         parkingRepository,
         floorRepository,
         zoneRepository,
-        tenantRepository);
+        tenantRepository,
+        storageService);
   }
 
   private FireExtinguisherRequest request(TestData data) {
@@ -270,6 +334,22 @@ class ManagerFireExtinguisherServiceImplTest {
             .build();
     extinguisher.setId(UUID.randomUUID());
     return new TestData(tenant, parking, floor, zone, extinguisher);
+  }
+
+  private FireExtinguisherInspection inspection(FireExtinguisher extinguisher) {
+    FireExtinguisherInspection inspection =
+        FireExtinguisherInspection.builder()
+            .tenant(data.tenant())
+            .fireExtinguisher(extinguisher)
+            .result(FireInspectionResult.OK)
+            .pressureOk(true)
+            .sealOk(true)
+            .locationOk(true)
+            .expiryOk(true)
+            .inspectedAt(java.time.LocalDateTime.now())
+            .build();
+    inspection.setId(UUID.randomUUID());
+    return inspection;
   }
 
   private record TestData(
