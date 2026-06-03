@@ -24,6 +24,9 @@ public record FireInspectionLogResponse(
     Boolean locationOk,
     Boolean expiryOk,
     String photoUrl,
+    String photoObjectKey,
+    String photoDisplayUrl,
+    Long photoUrlExpiresInSeconds,
     String note,
     LocalDateTime inspectedAt,
     LocalDateTime nextInspectionAt) {}

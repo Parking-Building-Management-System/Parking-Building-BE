@@ -27,6 +27,7 @@ public enum ErrorCode {
   TOO_MANY_REQUESTS(4290, "Too many requests", HttpStatus.TOO_MANY_REQUESTS),
 
   REQUEST_FAILED(4999, "Request failed", HttpStatus.BAD_REQUEST),
+  STORAGE_NOT_CONFIGURED(5030, "Storage is not configured", HttpStatus.SERVICE_UNAVAILABLE),
   UNEXPECTED_ERROR(5000, "Unexpected error", HttpStatus.INTERNAL_SERVER_ERROR),
   INVALID_SORT_FIELD(4048, "Không thể sắp xếp theo trường này!", HttpStatus.BAD_REQUEST),
   INVALID_PAGINATION(4049, "Page phải >= 0, size phải từ 1-100!", HttpStatus.BAD_REQUEST);

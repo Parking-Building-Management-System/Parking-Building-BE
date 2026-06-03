@@ -3,6 +3,8 @@ package com.smartpark.swp391.modules.manager.service.impl;
 import com.smartpark.swp391.common.exception.ApiException;
 import com.smartpark.swp391.common.exception.ErrorCode;
 import com.smartpark.swp391.common.response.PageResponse;
+import com.smartpark.swp391.infrastructure.storage.dto.PresignedDownload;
+import com.smartpark.swp391.infrastructure.storage.service.StorageService;
 import com.smartpark.swp391.infrastructure.tenant.TenantContext;
 import com.smartpark.swp391.modules.firesafety.entity.FireExtinguisher;
 import com.smartpark.swp391.modules.firesafety.entity.FireExtinguisherInspection;
@@ -55,6 +57,7 @@ public class ManagerFireExtinguisherServiceImpl implements ManagerFireExtinguish
   FloorRepository floorRepository;
   ZoneRepository zoneRepository;
   TenantRepository tenantRepository;
+  StorageService storageService;
 
   @Override
   @Transactional(readOnly = true)
@@ -361,6 +364,8 @@ public class ManagerFireExtinguisherServiceImpl implements ManagerFireExtinguish
     Floor floor = extinguisher.getFloor();
     Zone zone = extinguisher.getZone();
     User user = inspection.getInspectedBy();
+    PhotoDisplay photoDisplay =
+        resolvePhotoDisplay(inspection.getPhotoUrl(), inspection.getPhotoObjectKey());
     return FireInspectionLogResponse.builder()
         .id(inspection.getId())
         .fireExtinguisherId(extinguisher.getId())
@@ -379,6 +384,9 @@ public class ManagerFireExtinguisherServiceImpl implements ManagerFireExtinguish
         .locationOk(inspection.getLocationOk())
         .expiryOk(inspection.getExpiryOk())
         .photoUrl(inspection.getPhotoUrl())
+        .photoObjectKey(inspection.getPhotoObjectKey())
+        .photoDisplayUrl(photoDisplay.url())
+        .photoUrlExpiresInSeconds(photoDisplay.expiresInSeconds())
         .note(inspection.getNote())
         .inspectedAt(inspection.getInspectedAt())
         .nextInspectionAt(inspection.getNextInspectionAt())
@@ -408,6 +416,28 @@ public class ManagerFireExtinguisherServiceImpl implements ManagerFireExtinguish
     return value == null || value.isBlank() ? null : value.trim();
   }
 
+  private PhotoDisplay resolvePhotoDisplay(String photoUrl, String photoObjectKey) {
+    String objectKey = trimToNull(photoObjectKey);
+    if (objectKey != null) {
+      try {
+        PresignedDownload download =
+            storageService.createPresignedDownload(currentTenantId(), objectKey);
+        return new PhotoDisplay(download.downloadUrl(), download.expiresInSeconds());
+      } catch (ApiException e) {
+        return new PhotoDisplay(null, null);
+      }
+    }
+    String legacyUrl = trimToNull(photoUrl);
+    if (legacyUrl != null && isHttpUrl(legacyUrl)) {
+      return new PhotoDisplay(legacyUrl, null);
+    }
+    return new PhotoDisplay(null, null);
+  }
+
+  private boolean isHttpUrl(String value) {
+    return value.startsWith("http://") || value.startsWith("https://");
+  }
+
   private String normalizeSearch(String value) {
     String trimmed = trimToNull(value);
     return trimmed == null ? null : trimmed.toLowerCase(Locale.ROOT);
@@ -423,4 +453,6 @@ public class ManagerFireExtinguisherServiceImpl implements ManagerFireExtinguish
   }
 
   private record ValidatedLocation(Parking parking, Floor floor, Zone zone) {}
+
+  private record PhotoDisplay(String url, Long expiresInSeconds) {}
 }

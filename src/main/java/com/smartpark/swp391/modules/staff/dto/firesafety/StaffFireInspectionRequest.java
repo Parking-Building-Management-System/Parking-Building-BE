@@ -13,5 +13,6 @@ public record StaffFireInspectionRequest(
     Boolean locationOk,
     Boolean expiryOk,
     String photoUrl,
+    String photoObjectKey,
     String note,
     LocalDateTime nextInspectionAt) {}

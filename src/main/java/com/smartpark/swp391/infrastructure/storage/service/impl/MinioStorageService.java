@@ -103,11 +103,13 @@ public class MinioStorageService implements StorageService {
 
   private AmazonS3 s3() {
     if (!properties.configured()) {
-      throw new ApiException(ErrorCode.INVALID_INPUT, "MinIO/S3 storage is not configured");
+      throw new ApiException(
+          ErrorCode.STORAGE_NOT_CONFIGURED, "MinIO/S3 storage is not configured");
     }
     AmazonS3 s3 = s3Provider.getIfAvailable();
     if (s3 == null) {
-      throw new ApiException(ErrorCode.INVALID_INPUT, "MinIO/S3 storage client is not available");
+      throw new ApiException(
+          ErrorCode.STORAGE_NOT_CONFIGURED, "MinIO/S3 storage client is not available");
     }
     return s3;
   }
