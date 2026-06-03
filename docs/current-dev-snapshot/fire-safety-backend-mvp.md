@@ -115,6 +115,12 @@ Returns floor map metadata and extinguisher pins. It reuses `floors.map_image_ur
 
 Filters: `extinguisherId`, `parkingId`, `floorId`, `result`, `from`, `to`, `page`, `size`.
 
+Filter behavior:
+
+- Omitted and empty filters are treated as no filter.
+- The backend builds inspection log predicates only for supplied filters, so nullable UUID, enum, and date parameters are not bound into PostgreSQL `IS NULL OR ...` checks.
+- Production fix: `from`/`to` no longer trigger PostgreSQL `could not determine data type of parameter` when no date range is supplied.
+
 Photo fields:
 
 - `photoUrl`: legacy URL, if submitted.
@@ -227,13 +233,17 @@ Run backend locally on port 8081 and authenticate with a manager token. Do not p
 - `GET /manager/fire-extinguishers?search=FE`
 - `GET /manager/fire-extinguishers/summary`
 - `GET /manager/floors/{floorId}/fire-safety-map`
+- `GET /manager/fire-inspections/logs`
+- `GET /manager/fire-inspections/logs?result=OK`
+- `GET /manager/fire-inspections/logs?from=2026-01-01T00:00:00&to=2026-12-31T23:59:59`
 
-Expected manager result: no 500 responses, success wrapper code `1000`, seeded extinguishers present, and map items include `xCoordinate`/`yCoordinate`.
+Expected manager result: no 500 responses, no SQL type errors, success wrapper code `1000`, seeded extinguishers present, map items include `xCoordinate`/`yCoordinate`, and inspection logs work even when no rows match.
 
 If a staff token with approved staff device/workContext is available:
 
 - `POST /staff/fire-inspections/photos/presign-upload`
 - `GET /staff/fire-inspections/due`
 - `POST /staff/fire-inspections` with a safe test extinguisher
+- `GET /staff/rfid-cards/available`
 
 If no staff token/context is available, mobile staff smoke testing requires an approved staff device/workContext before these APIs can be exercised.

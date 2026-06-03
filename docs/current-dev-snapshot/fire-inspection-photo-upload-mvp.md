@@ -72,6 +72,8 @@ Submit example:
 
 If storage is unavailable when listing logs, the API still returns the log row with `photoObjectKey`; `photoDisplayUrl` is `null`.
 
+Inspection log filters are null-safe: omitted or empty `extinguisherId`, `parkingId`, `floorId`, `result`, `from`, and `to` filters behave like no filter. Date range filters are only applied when supplied.
+
 ## Legacy Behavior
 
 `photoUrl` is still accepted for backward compatibility. New mobile flows should use presign upload plus `photoObjectKey`.
