@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.smartpark.swp391.common.exception.ApiException;
+import com.smartpark.swp391.common.exception.ErrorCode;
 import com.smartpark.swp391.infrastructure.storage.dto.PresignedDownload;
 import com.smartpark.swp391.infrastructure.storage.service.StorageService;
 import com.smartpark.swp391.infrastructure.tenant.TenantContext;
@@ -269,6 +270,33 @@ class ManagerFireExtinguisherServiceImplTest {
         .isEqualTo("https://example.com/fire-inspections/demo.jpg");
     assertThat(logs.content().getFirst().photoUrlExpiresInSeconds()).isNull();
     verify(storageService, never()).createPresignedDownload(any(), any());
+  }
+
+  @Test
+  void inspectionLogsReturnPhotoObjectKeyWhenStorageDownloadFails() {
+    String objectKey = "tenants/" + data.tenant().getId() + "/fire-inspections/staff/photo.jpg";
+    FireExtinguisherInspection inspection = inspection(data.extinguisher());
+    inspection.setPhotoObjectKey(objectKey);
+    PageRequest pageable = PageRequest.of(0, 20, Sort.by("inspectedAt").descending());
+    when(inspectionRepository.searchLogs(
+            eq(data.tenant().getId()),
+            isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
+            eq(pageable)))
+        .thenReturn(new PageImpl<>(List.of(inspection), pageable, 1));
+    when(storageService.createPresignedDownload(data.tenant().getId(), objectKey))
+        .thenThrow(new ApiException(ErrorCode.STORAGE_NOT_CONFIGURED));
+
+    var logs = service().getInspectionLogs(null, null, null, null, null, null, 0, 20);
+
+    assertThat(logs.content()).hasSize(1);
+    assertThat(logs.content().getFirst().photoObjectKey()).isEqualTo(objectKey);
+    assertThat(logs.content().getFirst().photoDisplayUrl()).isNull();
+    assertThat(logs.content().getFirst().photoUrlExpiresInSeconds()).isNull();
   }
 
   private ManagerFireExtinguisherServiceImpl service() {
