@@ -1,0 +1,15 @@
+meta {
+  name: Manager List Fire Extinguishers No Search
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{baseUrl}}/manager/fire-extinguishers?page=0&size=20
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
