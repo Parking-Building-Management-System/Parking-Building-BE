@@ -1,0 +1,33 @@
+meta {
+  name: Staff Submit Inspection With Photo Object Key
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{baseUrl}}/staff/fire-inspections
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{staffEntryToken}}
+}
+
+body:json {
+  {
+    "fireExtinguisherId": "{{fireExtinguisherId}}",
+    "result": "OK",
+    "pressureOk": true,
+    "sealOk": true,
+    "locationOk": true,
+    "expiryOk": true,
+    "photoObjectKey": "{{inspectionPhotoObjectKey}}",
+    "note": "Inspection photo uploaded through presigned storage",
+    "nextInspectionAt": "2026-07-01T00:00:00"
+  }
+}

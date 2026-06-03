@@ -1,0 +1,19 @@
+meta {
+  name: Manager Logs With Photo Display URL
+  type: http
+  seq: 18
+}
+
+get {
+  url: {{baseUrl}}/manager/fire-inspections/logs?parkingId={{parkingId}}&page=0&size=20
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+
+docs {
+  Inspect `photoObjectKey`, `photoDisplayUrl`, and `photoUrlExpiresInSeconds` in log items.
+}
