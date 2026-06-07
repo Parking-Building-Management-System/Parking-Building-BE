@@ -6,6 +6,7 @@ import com.smartpark.swp391.modules.staff.dto.AvailableRfidCardResponse;
 import com.smartpark.swp391.modules.staff.service.StaffRfidCardService;
 import com.smartpark.swp391.modules.staff.support.StaffTenantContext;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
@@ -32,14 +33,24 @@ import org.springframework.web.bind.annotation.RestController;
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 @PreAuthorize("hasRole('STAFF')")
 @SecurityRequirement(name = "bearerAuth")
-@Tag(name = "Staff RFID Cards", description = "STAFF available RFID card APIs")
+@Tag(name = "Staff RFID Cards", description = "STAFF kiosk APIs for available card lookup")
 public class StaffRfidCardController {
 
   StaffRfidCardService staffRfidCardService;
   StaffTenantContext staffTenantContext;
 
   @GetMapping("/available")
-  @Operation(summary = "List available RFID cards for current staff parking")
+  @Operation(
+      summary = "List available RFID cards",
+      description =
+          "Actor: STAFF with trusted kiosk context. Lists ACTIVE RFID cards in the tenant that"
+              + " are not linked to an ACTIVE parking session. Used before check-in.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Available RFID cards loaded"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid limit or search query"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "STAFF role and trusted kiosk context required")
+  })
   public ResponseEntity<ApiResponse<List<AvailableRfidCardResponse>>> getAvailableCards(
       @RequestParam(required = false) String search,
       @RequestParam(required = false) @Min(1) @Max(100) Integer limit,

@@ -28,7 +28,11 @@ public class SwaggerConfig {
         .info(
             new Info()
                 .title("SmartPark API")
-                .description("API documentation for SmartPark System")
+                .description(
+                    "SmartPark backend API documentation. Endpoints are grouped by actor: "
+                        + "Authentication, System Admin, Manager Facility/Operations, Staff "
+                        + "Gate, PWA Driver/Payment, and Fire Safety. Most protected endpoints "
+                        + "use JWT bearer authentication plus role and tenant checks.")
                 .version("1.0.0"))
         .servers(
             List.of(

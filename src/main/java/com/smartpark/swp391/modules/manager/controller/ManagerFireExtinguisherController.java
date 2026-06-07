@@ -16,6 +16,7 @@ import com.smartpark.swp391.modules.manager.dto.firesafety.FireSafetyMapResponse
 import com.smartpark.swp391.modules.manager.service.ManagerFireExtinguisherService;
 import com.smartpark.swp391.modules.manager.support.ManagerTenantContext;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -50,14 +51,26 @@ import org.springframework.web.bind.annotation.RestController;
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 @PreAuthorize("hasRole('PARKING_MANAGER')")
 @SecurityRequirement(name = "bearerAuth")
-@Tag(name = "Manager Fire Safety", description = "PARKING_MANAGER fire extinguisher APIs")
+@Tag(
+    name = "Manager Fire Safety",
+    description = "PARKING_MANAGER fire extinguisher inventory, map, and inspection log APIs")
 public class ManagerFireExtinguisherController {
 
   ManagerFireExtinguisherService managerFireExtinguisherService;
   ManagerTenantContext managerTenantContext;
 
   @GetMapping("/fire-extinguishers")
-  @Operation(summary = "List fire extinguishers")
+  @Operation(
+      summary = "List fire extinguishers",
+      description =
+          "Actor: PARKING_MANAGER. Filters tenant fire extinguishers by parking, floor, zone,"
+              + " status, type, keyword, and expiry window. Read-only.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Fire extinguishers loaded"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid filter or pagination value"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "PARKING_MANAGER role required")
+  })
   public ResponseEntity<ApiResponse<PageResponse<FireExtinguisherResponse>>> getExtinguishers(
       @RequestParam(required = false) UUID parkingId,
       @RequestParam(required = false) UUID floorId,
@@ -87,7 +100,18 @@ public class ManagerFireExtinguisherController {
   }
 
   @PostMapping("/fire-extinguishers")
-  @Operation(summary = "Create fire extinguisher")
+  @Operation(
+      summary = "Create fire extinguisher",
+      description =
+          "Actor: PARKING_MANAGER. Creates a tenant fire extinguisher record tied to parking,"
+              + " floor, and optional zone, including map coordinates and inspection schedule.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Fire extinguisher created"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid code, dates, coordinates, or duplicate extinguisher"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "PARKING_MANAGER role required"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Parking, floor, or zone not found")
+  })
   public ResponseEntity<ApiResponse<FireExtinguisherResponse>> createExtinguisher(
       @Valid @RequestBody FireExtinguisherRequest request, @AuthenticationPrincipal Jwt jwt) {
     return ok(
@@ -130,7 +154,18 @@ public class ManagerFireExtinguisherController {
   }
 
   @PatchMapping("/fire-extinguishers/{id}/coordinate")
-  @Operation(summary = "Update fire extinguisher map coordinate")
+  @Operation(
+      summary = "Update fire extinguisher map coordinate",
+      description =
+          "Actor: PARKING_MANAGER. Updates the x/y percentage pin for one extinguisher on the"
+              + " floor fire-safety map.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Coordinate updated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid coordinate"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "PARKING_MANAGER role required"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Extinguisher not found")
+  })
   public ResponseEntity<ApiResponse<FireExtinguisherResponse>> updateCoordinate(
       @PathVariable UUID id,
       @Valid @RequestBody FireExtinguisherCoordinateRequest request,
@@ -159,7 +194,17 @@ public class ManagerFireExtinguisherController {
   }
 
   @GetMapping("/floors/{floorId}/fire-safety-map")
-  @Operation(summary = "Get floor fire safety map pins")
+  @Operation(
+      summary = "Get floor fire-safety map",
+      description =
+          "Actor: PARKING_MANAGER. Returns a floor map plus fire extinguisher pins and due"
+              + " inspection status. Read-only; used for manager visual compliance review.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Fire-safety map loaded"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "PARKING_MANAGER role required"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Floor not found")
+  })
   public ResponseEntity<ApiResponse<FireSafetyMapResponse>> getFireSafetyMap(
       @PathVariable UUID floorId, @AuthenticationPrincipal Jwt jwt) {
     return ok(
@@ -169,7 +214,17 @@ public class ManagerFireExtinguisherController {
   }
 
   @GetMapping("/fire-inspections/logs")
-  @Operation(summary = "List fire extinguisher inspection logs")
+  @Operation(
+      summary = "List fire inspection logs",
+      description =
+          "Actor: PARKING_MANAGER. Reviews staff-submitted fire inspection history with optional"
+              + " extinguisher, parking, floor, result, and date filters. Read-only.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Inspection logs loaded"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid filter or pagination value"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "PARKING_MANAGER role required")
+  })
   public ResponseEntity<ApiResponse<PageResponse<FireInspectionLogResponse>>> getInspectionLogs(
       @RequestParam(required = false) UUID extinguisherId,
       @RequestParam(required = false) UUID parkingId,

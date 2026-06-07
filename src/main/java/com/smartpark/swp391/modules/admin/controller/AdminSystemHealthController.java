@@ -8,6 +8,8 @@ import com.smartpark.swp391.modules.admin.dto.health.SystemHealthSummaryResponse
 import com.smartpark.swp391.modules.admin.dto.health.TopEndpointResponse;
 import com.smartpark.swp391.modules.admin.dto.health.TrafficPointResponse;
 import com.smartpark.swp391.modules.admin.service.AdminSystemHealthService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.Instant;
@@ -29,22 +31,55 @@ import org.springframework.web.bind.annotation.RestController;
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 @PreAuthorize("hasRole('SYSTEM_ADMIN')")
 @SecurityRequirement(name = "bearerAuth")
-@Tag(name = "Admin System Health", description = "SYSTEM_ADMIN platform health APIs")
+@Tag(
+    name = "System Admin Health",
+    description = "SYSTEM_ADMIN platform health, traffic, endpoint, and error monitoring APIs")
 public class AdminSystemHealthController {
 
   AdminSystemHealthService adminSystemHealthService;
 
   @GetMapping("/summary")
+  @Operation(
+      summary = "Get health summary",
+      description =
+          "Actor: SYSTEM_ADMIN. Returns aggregate API traffic, error rate, and service health"
+              + " indicators for the dashboard. Read-only.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Health summary loaded"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "SYSTEM_ADMIN role required")
+  })
   public ResponseEntity<ApiResponse<SystemHealthSummaryResponse>> getSummary() {
     return ok("/admin/system-health/summary", adminSystemHealthService.getSummary());
   }
 
   @GetMapping("/services")
+  @Operation(
+      summary = "Get service health list",
+      description =
+          "Actor: SYSTEM_ADMIN. Checks backend dependencies such as database, Redis, and storage"
+              + " readiness where available. Read-only.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Service health loaded"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "SYSTEM_ADMIN role required")
+  })
   public ResponseEntity<ApiResponse<List<ServiceHealthResponse>>> getServices() {
     return ok("/admin/system-health/services", adminSystemHealthService.getServices());
   }
 
   @GetMapping("/traffic")
+  @Operation(
+      summary = "Get API traffic timeline",
+      description =
+          "Actor: SYSTEM_ADMIN. Aggregates api_traffic_logs by time range and granularity"
+              + " for dashboard charts. Read-only.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Traffic timeline loaded"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid date range or granularity"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "SYSTEM_ADMIN role required")
+  })
   public ResponseEntity<ApiResponse<List<TrafficPointResponse>>> getTraffic(
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
           Instant from,
@@ -57,6 +92,17 @@ public class AdminSystemHealthController {
   }
 
   @GetMapping("/top-endpoints")
+  @Operation(
+      summary = "Get top endpoints",
+      description =
+          "Actor: SYSTEM_ADMIN. Returns the busiest endpoints in the selected time window from"
+              + " api_traffic_logs. Read-only.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Top endpoints loaded"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid date range or limit"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "SYSTEM_ADMIN role required")
+  })
   public ResponseEntity<ApiResponse<List<TopEndpointResponse>>> getTopEndpoints(
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
           Instant from,
@@ -69,6 +115,17 @@ public class AdminSystemHealthController {
   }
 
   @GetMapping("/errors")
+  @Operation(
+      summary = "Get recent API errors",
+      description =
+          "Actor: SYSTEM_ADMIN. Lists error responses captured from api_traffic_logs in the"
+              + " selected time window. Read-only.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Errors loaded"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid date range"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "SYSTEM_ADMIN role required")
+  })
   public ResponseEntity<ApiResponse<List<SystemErrorResponse>>> getErrors(
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
           Instant from,

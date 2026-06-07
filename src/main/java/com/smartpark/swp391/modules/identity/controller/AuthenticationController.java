@@ -79,12 +79,12 @@ public class AuthenticationController {
                       name = "Login",
                       value =
                           """
-                                                    {
-                                                      "username": "system.admin@smartpark.local",
-                                                      "password": "Password@123",
-                                                      "deviceFingerprint": "seed-system-admin-device",
-                                                      "deviceLabel": "Admin laptop"
-                                                    }
+                                                      {
+                                                        "username": "system.admin@smartpark.local",
+                                                      "password": "<demo-password>",
+                                                        "deviceFingerprint": "seed-system-admin-device",
+                                                        "deviceLabel": "Admin laptop"
+                                                      }
                                                     """)))
   @ApiResponses(
       value = {

@@ -12,6 +12,7 @@ import com.smartpark.swp391.modules.manager.dto.map.SlotCoordinateResponse;
 import com.smartpark.swp391.modules.manager.service.ManagerFacilityMapService;
 import com.smartpark.swp391.modules.manager.support.ManagerTenantContext;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -39,14 +40,27 @@ import org.springframework.web.bind.annotation.RestController;
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 @PreAuthorize("hasRole('PARKING_MANAGER')")
 @SecurityRequirement(name = "bearerAuth")
-@Tag(name = "Manager Facility Map", description = "PARKING_MANAGER floor map and slot coordinates")
+@Tag(
+    name = "Manager Facility Map",
+    description = "PARKING_MANAGER floor-plan image and slot-coordinate APIs")
 public class ManagerFacilityMapController {
 
   ManagerFacilityMapService managerFacilityMapService;
   ManagerTenantContext managerTenantContext;
 
   @PatchMapping("/floors/{id}/map")
-  @Operation(summary = "Update floor map image")
+  @Operation(
+      summary = "Update floor map image",
+      description =
+          "Actor: PARKING_MANAGER. Stores the floor map image URL/object reference used by"
+              + " manager and PWA map views. Updates the floors.map_image_url field only.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Floor map updated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid map URL or object key"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "PARKING_MANAGER role required"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Floor not found")
+  })
   public ResponseEntity<ApiResponse<FloorMapResponse>> updateFloorMap(
       @PathVariable UUID id,
       @Valid @RequestBody FloorMapRequest request,
@@ -58,7 +72,17 @@ public class ManagerFacilityMapController {
   }
 
   @GetMapping("/floors/{id}/map")
-  @Operation(summary = "Get floor map and slot coordinates")
+  @Operation(
+      summary = "Get floor map and slot pins",
+      description =
+          "Actor: PARKING_MANAGER. Returns a tenant floor map image plus all slot coordinates and"
+              + " statuses for visual setup and validation. Read-only.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Floor map loaded"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "PARKING_MANAGER role required"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Floor not found")
+  })
   public ResponseEntity<ApiResponse<FloorMapDetailResponse>> getFloorMap(
       @PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
     return ok(
@@ -67,7 +91,18 @@ public class ManagerFacilityMapController {
   }
 
   @PatchMapping("/slots/{id}/coordinate")
-  @Operation(summary = "Update one slot coordinate")
+  @Operation(
+      summary = "Update one slot coordinate",
+      description =
+          "Actor: PARKING_MANAGER. Updates x/y percentage coordinates for one slot pin on its"
+              + " floor map. Does not change slot occupancy status.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Slot coordinate updated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid coordinate"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "PARKING_MANAGER role required"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Slot not found")
+  })
   public ResponseEntity<ApiResponse<SlotCoordinateResponse>> updateSlotCoordinate(
       @PathVariable UUID id,
       @Valid @RequestBody SlotCoordinateRequest request,
@@ -79,7 +114,18 @@ public class ManagerFacilityMapController {
   }
 
   @PatchMapping("/slots/coordinates")
-  @Operation(summary = "Bulk update slot coordinates")
+  @Operation(
+      summary = "Bulk update slot coordinates",
+      description =
+          "Actor: PARKING_MANAGER. Updates multiple slot x/y pins in one request for fast map"
+              + " editing. Each slot remains in its current operational status.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Slot coordinates updated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid coordinate list"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "PARKING_MANAGER role required"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "One or more slots not found")
+  })
   public ResponseEntity<ApiResponse<SlotCoordinateBulkResponse>> updateSlotCoordinates(
       @Valid @RequestBody SlotCoordinateBulkRequest request, @AuthenticationPrincipal Jwt jwt) {
     return ok(

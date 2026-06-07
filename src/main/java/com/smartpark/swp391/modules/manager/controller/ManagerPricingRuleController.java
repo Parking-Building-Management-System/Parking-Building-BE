@@ -12,6 +12,7 @@ import com.smartpark.swp391.modules.manager.support.ManagerTenantContext;
 import com.smartpark.swp391.modules.pricing.dto.PricingQuoteResponse;
 import com.smartpark.swp391.modules.pricing.enumType.PricingRuleStatus;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -45,7 +46,9 @@ import org.springframework.web.bind.annotation.RestController;
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 @PreAuthorize("hasRole('PARKING_MANAGER')")
 @SecurityRequirement(name = "bearerAuth")
-@Tag(name = "Manager Pricing Rules", description = "PARKING_MANAGER pricing rule APIs")
+@Tag(
+    name = "Manager Pricing",
+    description = "PARKING_MANAGER pricing rule configuration and quote preview APIs")
 public class ManagerPricingRuleController {
 
   ManagerPricingRuleService managerPricingRuleService;
@@ -69,7 +72,19 @@ public class ManagerPricingRuleController {
   }
 
   @PostMapping
-  @Operation(summary = "Create pricing rule")
+  @Operation(
+      summary = "Create pricing rule",
+      description =
+          "Actor: PARKING_MANAGER. Creates a tenant pricing rule for a vehicle type and optional"
+              + " parking scope. The rule controls checkout quote, PayOS amount, and exit grace"
+              + " period.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Pricing rule created"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid price blocks, duplicate active rule, or inactive vehicle type"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "PARKING_MANAGER role required"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Parking or vehicle type not found")
+  })
   public ResponseEntity<ApiResponse<ManagerPricingRuleResponse>> createRule(
       @Valid @RequestBody ManagerPricingRuleRequest request, @AuthenticationPrincipal Jwt jwt) {
     return ok(
@@ -117,7 +132,18 @@ public class ManagerPricingRuleController {
   }
 
   @PostMapping("/{id}/preview")
-  @Operation(summary = "Preview pricing rule quote")
+  @Operation(
+      summary = "Preview pricing quote",
+      description =
+          "Actor: PARKING_MANAGER. Calculates a quote from the selected pricing rule and sample"
+              + " check-in/check-out times without modifying sessions or payment data.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Pricing preview calculated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid time range or inactive pricing rule"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "PARKING_MANAGER role required"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Pricing rule not found")
+  })
   public ResponseEntity<ApiResponse<PricingQuoteResponse>> preview(
       @PathVariable UUID id,
       @Valid @RequestBody ManagerPricingRulePreviewRequest request,

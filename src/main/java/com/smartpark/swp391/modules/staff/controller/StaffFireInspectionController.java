@@ -11,6 +11,7 @@ import com.smartpark.swp391.modules.staff.dto.firesafety.StaffInspectionPhotoPre
 import com.smartpark.swp391.modules.staff.service.StaffFireInspectionService;
 import com.smartpark.swp391.modules.staff.support.StaffTenantContext;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -39,14 +40,26 @@ import org.springframework.web.bind.annotation.RestController;
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 @PreAuthorize("hasRole('STAFF')")
 @SecurityRequirement(name = "bearerAuth")
-@Tag(name = "Staff Fire Inspections", description = "STAFF fire extinguisher inspection APIs")
+@Tag(
+    name = "Staff Fire Inspections",
+    description = "STAFF kiosk APIs for due fire-extinguisher checks and inspection submission")
 public class StaffFireInspectionController {
 
   StaffFireInspectionService staffFireInspectionService;
   StaffTenantContext staffTenantContext;
 
   @GetMapping("/due")
-  @Operation(summary = "List due fire extinguisher inspections for current staff parking")
+  @Operation(
+      summary = "List due fire inspections",
+      description =
+          "Actor: STAFF with trusted kiosk context. Lists fire extinguishers in the staff kiosk"
+              + " parking that are due or filtered by floor/status. Read-only.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Due inspections loaded"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid floor or status filter"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "STAFF role and trusted kiosk context required")
+  })
   public ResponseEntity<ApiResponse<List<StaffFireInspectionDueResponse>>> getDueInspections(
       @RequestParam(required = false) UUID floorId,
       @RequestParam(required = false) FireExtinguisherStatus status,
@@ -58,7 +71,19 @@ public class StaffFireInspectionController {
   }
 
   @PostMapping
-  @Operation(summary = "Submit fire extinguisher inspection")
+  @Operation(
+      summary = "Submit fire inspection",
+      description =
+          "Actor: STAFF with trusted kiosk context. Creates an inspection log, records checklist"
+              + " result and optional photo object key, then updates the extinguisher last/next"
+              + " inspection timestamps and status.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Inspection submitted"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid checklist, result, or photo object key"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "STAFF role and trusted kiosk context required"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Fire extinguisher not found")
+  })
   public ResponseEntity<ApiResponse<StaffFireInspectionResponse>> submitInspection(
       @Valid @RequestBody StaffFireInspectionRequest request, @AuthenticationPrincipal Jwt jwt) {
     return ok(
@@ -67,7 +92,18 @@ public class StaffFireInspectionController {
   }
 
   @PostMapping("/photos/presign-upload")
-  @Operation(summary = "Create presigned upload URL for a fire inspection photo")
+  @Operation(
+      summary = "Presign inspection photo upload",
+      description =
+          "Actor: STAFF with trusted kiosk context. Creates a tenant-scoped presigned object"
+              + " upload URL for one fire-inspection photo. The returned object key is later sent"
+              + " in the inspection submission.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Presigned upload created"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid file name or content type"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "STAFF role and trusted kiosk context required")
+  })
   public ResponseEntity<ApiResponse<StaffInspectionPhotoPresignResponse>> presignInspectionPhoto(
       @Valid @RequestBody StaffInspectionPhotoPresignRequest request,
       @AuthenticationPrincipal Jwt jwt) {

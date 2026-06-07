@@ -8,6 +8,7 @@ import com.smartpark.swp391.modules.manager.dto.device.ManagerDeviceResponse;
 import com.smartpark.swp391.modules.manager.service.ManagerDeviceApprovalService;
 import com.smartpark.swp391.modules.manager.support.ManagerTenantContext;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -34,14 +35,25 @@ import org.springframework.web.bind.annotation.RestController;
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 @PreAuthorize("hasRole('PARKING_MANAGER')")
 @SecurityRequirement(name = "bearerAuth")
-@Tag(name = "Manager Device Approvals", description = "PARKING_MANAGER staff device approvals")
+@Tag(
+    name = "Manager Staff Devices",
+    description = "PARKING_MANAGER approval APIs for staff trusted devices and kiosk binding")
 public class ManagerDeviceApprovalController {
 
   ManagerDeviceApprovalService managerDeviceApprovalService;
   ManagerTenantContext managerTenantContext;
 
   @GetMapping("/device-approvals")
-  @Operation(summary = "List pending staff device approval requests")
+  @Operation(
+      summary = "List pending staff device approvals",
+      description =
+          "Actor: PARKING_MANAGER. Lists PENDING staff device fingerprints created when staff"
+              + " login is blocked by device trust. Read-only.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Pending approvals loaded"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "PARKING_MANAGER role required")
+  })
   public ResponseEntity<ApiResponse<List<ManagerDeviceResponse>>> getPending(
       @AuthenticationPrincipal Jwt jwt) {
     return ok(
@@ -50,7 +62,19 @@ public class ManagerDeviceApprovalController {
   }
 
   @PostMapping("/device-approvals/{id}/approve")
-  @Operation(summary = "Approve staff device and bind it to kiosk")
+  @Operation(
+      summary = "Approve staff device",
+      description =
+          "Actor: PARKING_MANAGER. Approves a pending staff device, binds it to an ACTIVE kiosk,"
+              + " and sets approval metadata. Staff can log in only after kiosk assignment also"
+              + " matches.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Device approved"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid kiosk binding or device status"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "PARKING_MANAGER role required"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Device or kiosk not found")
+  })
   public ResponseEntity<ApiResponse<ManagerDeviceResponse>> approve(
       @PathVariable UUID id,
       @Valid @RequestBody DeviceApprovalRequest request,
@@ -72,7 +96,17 @@ public class ManagerDeviceApprovalController {
   }
 
   @PostMapping("/devices/{id}/revoke")
-  @Operation(summary = "Revoke approved staff device")
+  @Operation(
+      summary = "Revoke staff device",
+      description =
+          "Actor: PARKING_MANAGER. Suspends a staff trusted device and removes its kiosk trust,"
+              + " blocking future staff login from that fingerprint.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Device revoked"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "PARKING_MANAGER role required"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Device not found")
+  })
   public ResponseEntity<ApiResponse<ManagerDeviceResponse>> revoke(
       @PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
     return ok(
