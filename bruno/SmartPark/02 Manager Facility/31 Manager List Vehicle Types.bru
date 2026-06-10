@@ -1,0 +1,15 @@
+meta {
+  name: Manager List Vehicle Types
+  type: http
+  seq: 31
+}
+
+get {
+  url: {{baseUrl}}/manager/master-data/vehicle-types
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}

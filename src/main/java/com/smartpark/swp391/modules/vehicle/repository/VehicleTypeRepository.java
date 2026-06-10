@@ -14,4 +14,6 @@ public interface VehicleTypeRepository extends JpaRepository<VehicleType, UUID> 
   Optional<VehicleType> findByCodeIgnoreCaseAndDeletedFalse(String code);
 
   List<VehicleType> findAllByDeletedFalseOrderByNameAsc();
+
+  List<VehicleType> findAllByActiveTrueAndDeletedFalseOrderByNameAsc();
 }
