@@ -1,10 +1,10 @@
 app:
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,https://hmnm.id.vn}
   swagger:
     server:
-      url: ${SWAGGER_SERVER_URL:http://localhost:8080}
-      description: ${SWAGGER_SERVER_DESC:Local Server}
+      url: ${SWAGGER_SERVER_URL:https://hmnm.id.vn}
+      description: ${SWAGGER_SERVER_DESC:Prod Server}
   storage:
     minio:
       endpoint: ${APP_MINIO_ENDPOINT:}
