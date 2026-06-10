@@ -1,0 +1,15 @@
+meta {
+  name: List Slots By Parking And Floor
+  type: http
+  seq: 33
+}
+
+get {
+  url: {{baseUrl}}/manager/slots?parkingId={{parkingId}}&floorId={{floorId}}&page=0&size=20
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}

@@ -1,0 +1,15 @@
+meta {
+  name: List Slots By Zone
+  type: http
+  seq: 34
+}
+
+get {
+  url: {{baseUrl}}/manager/slots?zoneId={{zoneId}}&page=0&size=20
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}

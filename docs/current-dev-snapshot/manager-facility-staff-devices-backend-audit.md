@@ -46,7 +46,7 @@ not send `tenantId`.
 | Zone | detail | GET | `/manager/zones/{id}` | Ready | path id | `ZoneResponse` |
 | Zone | update | PUT | `/manager/zones/{id}` | Ready | `{code,name,vehicleTypeCode,capacity,status}` | `ZoneResponse` |
 | Zone | soft delete | DELETE | `/manager/zones/{id}` | Ready | empty zone only | `result: null` |
-| Slot | list/search/filter | GET | `/manager/slots` | Ready | `zoneId`, `status`, `slotCode`, `exact`, `page`, `size` | paged `SlotResponse` |
+| Slot | list/search/filter | GET | `/manager/slots` | Ready | `parkingId`, `floorId`, `zoneId`, `status`, `slotCode`, `exact`, `page`, `size` | paged `SlotResponse` |
 | Slot | create | POST | `/manager/zones/{zoneId}/slots` | Ready | `{code,slotNumber,status}` | `SlotResponse` |
 | Slot | detail | GET | `/manager/slots/{id}` | Ready | path id | `SlotResponse` |
 | Slot | update | PUT | `/manager/slots/{id}` | Ready | `{code,slotNumber,status}` | `SlotResponse` |
@@ -179,7 +179,7 @@ Reset staff password:
 - No Manager active session list or per-session revoke endpoint.
 - Manager device revoke does not revoke active sessions for that device or user.
 - No dedicated pending-device count endpoint for sidebar badges.
-- Slot list filters by `zoneId`; it does not expose direct `parkingId` or `floorId` filters.
+- Slot list filters by `parkingId`, `floorId`, and `zoneId` with AND semantics under the current manager tenant.
 - Facility map accepts external `http(s)` URLs without backend fetch/scanning.
 - Check-in still accepts `parkingId` as a DEV fallback while FE migrates to kiosk context.
 

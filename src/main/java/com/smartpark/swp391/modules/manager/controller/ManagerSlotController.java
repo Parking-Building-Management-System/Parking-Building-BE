@@ -61,13 +61,16 @@ public class ManagerSlotController {
   @Operation(
       summary = "Search slots",
       description =
-          "Returns tenant slots with pagination and strict filters by zoneId, status, and slotCode."
-              + " Use exact=true for exact code match; otherwise slotCode is a LIKE search.")
+          "Returns tenant slots with pagination and strict filters by parkingId, floorId, zoneId,"
+              + " status, and slotCode. Use exact=true for exact code match; otherwise slotCode is"
+              + " a LIKE search.")
   @io.swagger.v3.oas.annotations.responses.ApiResponse(
       responseCode = "200",
       description = "Slots loaded successfully",
       content = @Content(schema = @Schema(implementation = PageResponse.class)))
   public ResponseEntity<ApiResponse<PageResponse<SlotResponse>>> getSlots(
+      @RequestParam(required = false) UUID parkingId,
+      @RequestParam(required = false) UUID floorId,
       @RequestParam(required = false) UUID zoneId,
       @RequestParam(required = false) SlotStatus status,
       @RequestParam(required = false) String slotCode,
@@ -78,7 +81,10 @@ public class ManagerSlotController {
     return ok(
         "/manager/slots",
         managerTenantContext.call(
-            jwt, () -> managerSlotService.getSlots(zoneId, status, slotCode, exact, page, size)));
+            jwt,
+            () ->
+                managerSlotService.getSlots(
+                    parkingId, floorId, zoneId, status, slotCode, exact, page, size)));
   }
 
   @PatchMapping("/bulk-status")

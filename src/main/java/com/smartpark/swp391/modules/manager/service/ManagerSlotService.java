@@ -13,7 +13,14 @@ import org.springframework.web.multipart.MultipartFile;
 
 public interface ManagerSlotService {
   PageResponse<SlotResponse> getSlots(
-      UUID zoneId, SlotStatus status, String slotCode, boolean exact, int page, int size);
+      UUID parkingId,
+      UUID floorId,
+      UUID zoneId,
+      SlotStatus status,
+      String slotCode,
+      boolean exact,
+      int page,
+      int size);
 
   SlotResponse getSlot(UUID id);
 

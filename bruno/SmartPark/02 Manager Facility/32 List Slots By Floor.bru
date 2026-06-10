@@ -1,0 +1,15 @@
+meta {
+  name: List Slots By Floor
+  type: http
+  seq: 32
+}
+
+get {
+  url: {{baseUrl}}/manager/slots?floorId={{floorId}}&page=0&size=20
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}

@@ -70,8 +70,16 @@ public class ManagerSlotServiceImpl implements ManagerSlotService {
   @Override
   @Transactional(readOnly = true)
   public PageResponse<SlotResponse> getSlots(
-      UUID zoneId, SlotStatus status, String slotCode, boolean exact, int page, int size) {
-    Specification<Slot> spec = buildSlotSpecification(zoneId, status, slotCode, exact);
+      UUID parkingId,
+      UUID floorId,
+      UUID zoneId,
+      SlotStatus status,
+      String slotCode,
+      boolean exact,
+      int page,
+      int size) {
+    Specification<Slot> spec =
+        buildSlotSpecification(parkingId, floorId, zoneId, status, slotCode, exact);
     var pageable = PageRequest.of(page, size, Sort.by("code").ascending());
     var result = slotRepository.findAll(spec, pageable);
 
@@ -269,11 +277,24 @@ public class ManagerSlotServiceImpl implements ManagerSlotService {
   }
 
   private Specification<Slot> buildSlotSpecification(
-      UUID zoneId, SlotStatus status, String slotCode, boolean exact) {
+      UUID parkingId,
+      UUID floorId,
+      UUID zoneId,
+      SlotStatus status,
+      String slotCode,
+      boolean exact) {
     return (root, query, criteriaBuilder) -> {
       List<Predicate> predicates = new ArrayList<>();
       predicates.add(criteriaBuilder.equal(root.get("tenant").get("id"), currentTenantId()));
       predicates.add(criteriaBuilder.isFalse(root.get("isDeleted")));
+
+      if (parkingId != null) {
+        predicates.add(criteriaBuilder.equal(root.get("parking").get("id"), parkingId));
+      }
+
+      if (floorId != null) {
+        predicates.add(criteriaBuilder.equal(root.get("floor").get("id"), floorId));
+      }
 
       if (zoneId != null) {
         predicates.add(criteriaBuilder.equal(root.get("zone").get("id"), zoneId));
