@@ -155,5 +155,6 @@ Expected result: HTTP 400 validation/API error.
 - No indoor pathfinding.
 - No image moderation, malware scanning, or server-side fetch validation for external URLs.
 - Private MinIO objects should be displayed through presigned download URLs unless a public bucket policy is intentionally added later.
+- Demo floor maps can be seeded from `src/main/resources/demo-assets/floor-maps/` when `APP_DEMO_SEED_ENABLED=true` and `APP_DEMO_SEED_FLOOR_MAPS_ENABLED=true`. See `docs/current-dev-snapshot/demo-minio-map-seed-troubleshooting.md` for the MinIO env checklist and repair flow when DB object keys exist but MinIO objects are missing.
 - Facility overview does not have a mapped-slot count endpoint; FE can count
   `GET /manager/floors/{id}/map.slots[*].hasCoordinate` per floor.

@@ -18,5 +18,7 @@ public interface StorageService {
       long contentLength,
       String contentType);
 
+  boolean objectExists(UUID tenantId, String objectKey);
+
   String publicObjectUrl(String objectKey);
 }

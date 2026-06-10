@@ -75,38 +75,59 @@ public class FacilityMapDemoSeeder {
 
   private void seedFloorMaps(SeedStats stats) {
     List<Floor> floors = floorRepository.findAllForDemoSeed();
-    stats.floorMapsSkippedConfigured =
-        (int) floors.stream().filter(floor -> hasText(floor.getMapImageUrl())).count();
 
     if (!minioStorageProperties.configured()) {
       stats.floorMapsSkippedMissingStorage = true;
-      log.warn("Skipping facility map demo image seed because MinIO/S3 storage is not configured.");
+      log.warn("Demo floor map seed skipped: storage not configured.");
       return;
     }
 
     for (Floor floor : floors) {
-      if (hasText(floor.getMapImageUrl())) {
+      String currentMapImageUrl = floor.getMapImageUrl();
+      if (isExternalUrl(currentMapImageUrl)) {
+        stats.floorMapsSkippedConfigured++;
         continue;
       }
 
       DemoMapAsset asset = assetFor(floor.getId());
-      String objectKey = demoObjectKey(floor, asset.fileName());
-      if (!uploadDemoAsset(floor.getTenant().getId(), objectKey, asset, stats)) {
-        return;
+      String objectKey =
+          hasText(currentMapImageUrl)
+              ? currentMapImageUrl.trim()
+              : demoObjectKey(floor, asset.fileName());
+      if (objectExists(floor.getTenant().getId(), objectKey, stats)) {
+        stats.floorMapsSkippedConfigured++;
+        continue;
       }
 
-      floor.setMapImageUrl(objectKey);
+      if (!uploadDemoAsset(floor.getTenant().getId(), objectKey, asset, stats)) {
+        continue;
+      }
+
+      if (!hasText(currentMapImageUrl)) {
+        floor.setMapImageUrl(objectKey);
+      }
       stats.floorMapsSeeded++;
     }
 
     floorRepository.saveAll(floors);
   }
 
+  private boolean objectExists(UUID tenantId, String objectKey, SeedStats stats) {
+    try {
+      return storageService.objectExists(tenantId, objectKey);
+    } catch (RuntimeException e) {
+      log.warn("Demo floor map seed could not verify object '{}': {}", objectKey, e.getMessage());
+      stats.floorMapsSkippedMissingStorage = true;
+      return false;
+    }
+  }
+
   private boolean uploadDemoAsset(
       UUID tenantId, String objectKey, DemoMapAsset asset, SeedStats stats) {
     Resource resource = resourceLoader.getResource(ASSET_BASE + asset.fileName());
     if (!resource.exists()) {
-      log.warn("Skipping facility map demo image seed because asset is missing: {}", asset.fileName());
+      log.warn(
+          "Skipping facility map demo image seed because asset is missing: {}", asset.fileName());
       stats.floorMapsSkippedMissingStorage = true;
       return false;
     }
@@ -116,7 +137,10 @@ public class FacilityMapDemoSeeder {
           tenantId, objectKey, inputStream, resource.contentLength(), asset.contentType());
       return true;
     } catch (IOException | RuntimeException e) {
-      log.warn("Skipping facility map demo image seed after upload failure: {}", e.getMessage());
+      log.warn(
+          "Demo floor map seed skipped object '{}' after upload failure: {}",
+          objectKey,
+          e.getMessage());
       stats.floorMapsSkippedMissingStorage = true;
       return false;
     }
@@ -156,11 +180,7 @@ public class FacilityMapDemoSeeder {
 
   private void seedFloorSlotCoordinates(List<Slot> floorSlots, SeedStats stats) {
     List<Zone> zones =
-        floorSlots.stream()
-            .map(Slot::getZone)
-            .distinct()
-            .sorted(zoneComparator())
-            .toList();
+        floorSlots.stream().map(Slot::getZone).distinct().sorted(zoneComparator()).toList();
 
     for (int zoneIndex = 0; zoneIndex < zones.size(); zoneIndex++) {
       Zone zone = zones.get(zoneIndex);
@@ -269,6 +289,14 @@ public class FacilityMapDemoSeeder {
 
   private boolean hasText(String value) {
     return value != null && !value.isBlank();
+  }
+
+  private boolean isExternalUrl(String value) {
+    if (!hasText(value)) {
+      return false;
+    }
+    String normalized = value.trim().toLowerCase(Locale.ROOT);
+    return normalized.startsWith("http://") || normalized.startsWith("https://");
   }
 
   private record DemoMapAsset(String fileName, String contentType) {}
