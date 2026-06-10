@@ -55,7 +55,7 @@ public class FacilityMapDemoSeeder {
 
   @Transactional
   public FacilityMapDemoSeedResult seed() {
-    SeedStats stats = new SeedStats();
+    SeedStats stats = diagnosticStats();
 
     if (properties.floorMapsEnabled()) {
       seedFloorMaps(stats);
@@ -64,9 +64,39 @@ public class FacilityMapDemoSeeder {
       seedSlotCoordinates(stats);
     }
 
+    return result(true, stats);
+  }
+
+  @Transactional(readOnly = true)
+  public FacilityMapDemoSeedResult diagnosticsOnly(boolean demoSeedEnabled) {
+    return result(demoSeedEnabled, diagnosticStats());
+  }
+
+  private SeedStats diagnosticStats() {
+    SeedStats stats = new SeedStats();
+    List<Floor> floors = floorRepository.findAllForDemoSeed();
+    stats.nonDeletedFloorCount = floors.size();
+    stats.floorsWithMapImageUrlCount =
+        (int) floors.stream().filter(floor -> hasText(floor.getMapImageUrl())).count();
+    stats.assetCountFound = assetCountFound();
+    return stats;
+  }
+
+  private FacilityMapDemoSeedResult result(boolean demoSeedEnabled, SeedStats stats) {
     return FacilityMapDemoSeedResult.builder()
+        .demoSeedEnabled(demoSeedEnabled)
+        .floorMapsEnabled(properties.floorMapsEnabled())
+        .slotCoordinatesEnabled(properties.slotCoordinatesEnabled())
+        .storageConfigured(minioStorageProperties.configured())
+        .bucketName(bucketNameForLog())
+        .assetCountFound(stats.assetCountFound)
+        .nonDeletedFloorCount(stats.nonDeletedFloorCount)
+        .floorsWithMapImageUrlCount(stats.floorsWithMapImageUrlCount)
         .floorMapsSeeded(stats.floorMapsSeeded)
+        .floorMapsUploaded(stats.floorMapsUploaded)
+        .floorMapsReuploaded(stats.floorMapsReuploaded)
         .floorMapsSkippedConfigured(stats.floorMapsSkippedConfigured)
+        .floorMapsSkippedUnconfigured(stats.floorMapsSkippedUnconfigured)
         .slotCoordinatesSeeded(stats.slotCoordinatesSeeded)
         .slotCoordinatesSkippedConfigured(stats.slotCoordinatesSkippedConfigured)
         .floorMapsSkippedMissingStorage(stats.floorMapsSkippedMissingStorage)
@@ -75,15 +105,18 @@ public class FacilityMapDemoSeeder {
 
   private void seedFloorMaps(SeedStats stats) {
     List<Floor> floors = floorRepository.findAllForDemoSeed();
+    stats.nonDeletedFloorCount = floors.size();
 
     if (!minioStorageProperties.configured()) {
       stats.floorMapsSkippedMissingStorage = true;
+      stats.floorMapsSkippedUnconfigured = floors.size();
       log.warn("Demo floor map seed skipped: storage not configured.");
       return;
     }
 
     for (Floor floor : floors) {
       String currentMapImageUrl = floor.getMapImageUrl();
+      boolean hadMapImageUrl = hasText(currentMapImageUrl);
       if (isExternalUrl(currentMapImageUrl)) {
         stats.floorMapsSkippedConfigured++;
         continue;
@@ -103,8 +136,12 @@ public class FacilityMapDemoSeeder {
         continue;
       }
 
-      if (!hasText(currentMapImageUrl)) {
+      if (!hadMapImageUrl) {
         floor.setMapImageUrl(objectKey);
+        stats.floorMapsUploaded++;
+        stats.floorsWithMapImageUrlCount++;
+      } else {
+        stats.floorMapsReuploaded++;
       }
       stats.floorMapsSeeded++;
     }
@@ -299,13 +336,33 @@ public class FacilityMapDemoSeeder {
     return normalized.startsWith("http://") || normalized.startsWith("https://");
   }
 
+  private int assetCountFound() {
+    int count = 0;
+    for (DemoMapAsset asset : DEMO_MAP_ASSETS) {
+      if (resourceLoader.getResource(ASSET_BASE + asset.fileName()).exists()) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  private String bucketNameForLog() {
+    return hasText(minioStorageProperties.bucket()) ? minioStorageProperties.bucket() : "<empty>";
+  }
+
   private record DemoMapAsset(String fileName, String contentType) {}
 
   private record Band(double start, double end) {}
 
   private static class SeedStats {
+    int assetCountFound;
+    int nonDeletedFloorCount;
+    int floorsWithMapImageUrlCount;
     int floorMapsSeeded;
+    int floorMapsUploaded;
+    int floorMapsReuploaded;
     int floorMapsSkippedConfigured;
+    int floorMapsSkippedUnconfigured;
     int slotCoordinatesSeeded;
     int slotCoordinatesSkippedConfigured;
     boolean floorMapsSkippedMissingStorage;

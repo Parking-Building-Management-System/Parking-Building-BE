@@ -35,6 +35,8 @@ class FacilityMapDemoSeederTest {
 
   @Test
   void seedSkipsFloorMapsWithoutThrowingWhenStorageIsUnconfigured() {
+    Floor floor = floor(null);
+    when(floorRepository.findAllForDemoSeed()).thenReturn(List.of(floor));
     FacilityMapDemoSeeder seeder =
         seeder(new MinioStorageProperties("", "", "", "minio", "smartpark"));
 
@@ -42,6 +44,27 @@ class FacilityMapDemoSeederTest {
 
     assertThat(result.floorMapsSeeded()).isZero();
     assertThat(result.floorMapsSkippedMissingStorage()).isTrue();
+    assertThat(result.floorMapsSkippedUnconfigured()).isEqualTo(1);
+    assertThat(result.nonDeletedFloorCount()).isEqualTo(1);
+    verify(storageService, never()).uploadObject(any(), any(), any(), anyLong(), any());
+  }
+
+  @Test
+  void diagnosticsOnlyReportsFlagsAndCountsWithoutUploading() {
+    Floor floorWithoutMap = floor(null);
+    Floor floorWithMap = floor("tenants/" + floorWithoutMap.getTenant().getId() + "/floor.png");
+    when(floorRepository.findAllForDemoSeed()).thenReturn(List.of(floorWithoutMap, floorWithMap));
+
+    FacilityMapDemoSeedResult result = seeder(configuredStorage()).diagnosticsOnly(false);
+
+    assertThat(result.demoSeedEnabled()).isFalse();
+    assertThat(result.floorMapsEnabled()).isTrue();
+    assertThat(result.slotCoordinatesEnabled()).isFalse();
+    assertThat(result.storageConfigured()).isTrue();
+    assertThat(result.bucketName()).isEqualTo("smartpark");
+    assertThat(result.assetCountFound()).isEqualTo(5);
+    assertThat(result.nonDeletedFloorCount()).isEqualTo(2);
+    assertThat(result.floorsWithMapImageUrlCount()).isEqualTo(1);
     verify(storageService, never()).uploadObject(any(), any(), any(), anyLong(), any());
   }
 
@@ -54,6 +77,9 @@ class FacilityMapDemoSeederTest {
     FacilityMapDemoSeedResult result = seeder(configuredStorage()).seed();
 
     assertThat(result.floorMapsSeeded()).isEqualTo(1);
+    assertThat(result.floorMapsUploaded()).isEqualTo(1);
+    assertThat(result.floorMapsReuploaded()).isZero();
+    assertThat(result.floorsWithMapImageUrlCount()).isEqualTo(1);
     assertThat(floor.getMapImageUrl())
         .startsWith("tenants/" + floor.getTenant().getId() + "/floor-maps/demo/");
     verify(storageService)
@@ -78,6 +104,8 @@ class FacilityMapDemoSeederTest {
     FacilityMapDemoSeedResult result = seeder(configuredStorage()).seed();
 
     assertThat(result.floorMapsSeeded()).isEqualTo(1);
+    assertThat(result.floorMapsUploaded()).isZero();
+    assertThat(result.floorMapsReuploaded()).isEqualTo(1);
     assertThat(floor.getMapImageUrl()).isEqualTo(objectKey);
     verify(storageService)
         .uploadObject(
