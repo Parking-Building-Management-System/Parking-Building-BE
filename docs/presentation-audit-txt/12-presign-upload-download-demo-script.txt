@@ -1,0 +1,404 @@
+12 - PRESIGNED UPLOAD/DOWNLOAD DEMO SCRIPT
+
+PHAN 1: KET LUAN NHANH
+
+* Presign upload endpoint: POST /manager/storage/presign-upload
+* Presign download endpoint: GET /manager/storage/presign-download?objectKey=...
+* File demo: /home/dorriss-dev/Projects/smartpark/Parking-Building-BE/src/main/resources/demo-assets/floor-maps/demo-parking-1.png
+* Content-Type file demo: image/png
+* Size file demo: 30447 bytes
+* Bug trailing slash da fix: app.storage.minio.endpoint du http://localhost:9000 hay http://localhost:9000/ deu duoc normalize thanh http://localhost:9000 truoc khi tao S3 client.
+* PUT 400 thuong do Content-Type mismatch, dung POST thay PUT, gui multipart/form-data thay raw binary, presign URL expired, hoac endpoint cu sinh URL co //smartpark.
+* Swagger demo duoc buoc login, xin presign upload, xin presign download, update/get floor map. Swagger khong phu hop de PUT binary truc tiep len MinIO.
+* Bruno/curl demo buoc PUT file truc tiep len uploadUrl.
+
+PHAN 2: MENTAL MODEL 30 GIAY
+
+"Backend khong nhan raw image bytes. Backend chi cap URL ky san co thoi han. Client upload truc tiep len MinIO bang PUT. Sau do backend chi luu objectKey. Khi can xem anh, backend cap presigned download URL."
+
+PHAN 3: DEMO ORDER TOI NAY
+
+Step 0: Login DEV
+
+Endpoint:
+POST /auth/login
+
+Payload:
+{
+  "username": "dev@vincom.smartpark.local",
+  "password": "Password@123",
+  "deviceFingerprint": "seed-dev-vincom-device",
+  "deviceLabel": "Vincom Dev Laptop"
+}
+
+Copy accessToken vao Swagger Authorize hoac Bruno variable:
+managerToken = accessToken
+staffEntryToken = accessToken neu demo staff fire-inspection upload.
+
+Step 1: Chon anh demo
+
+* File path: /home/dorriss-dev/Projects/smartpark/Parking-Building-BE/src/main/resources/demo-assets/floor-maps/demo-parking-1.png
+* Content-Type: image/png
+* Size: 30447 bytes
+
+Step 2: Swagger - Presign Upload
+
+Endpoint:
+POST /manager/storage/presign-upload
+
+Swagger tag:
+Manager Storage
+
+Controller:
+src/main/java/com/smartpark/swp391/modules/manager/controller/ManagerStorageController.java
+
+Method:
+presignUpload
+
+Request DTO:
+PresignUploadRequest
+
+Request:
+{
+  "fileName": "demo-parking-1.png",
+  "contentType": "image/png",
+  "folder": "floor-maps"
+}
+
+Expected response:
+{
+  "objectKey": "tenants/<tenantId>/floor-maps/<uuid>-demo-parking-1.png",
+  "uploadUrl": "http://localhost:9000/smartpark/...",
+  "method": "PUT",
+  "headers": {
+    "Content-Type": "image/png"
+  },
+  "expiresInSeconds": 900,
+  "publicUrl": null
+}
+
+Fields can copy:
+* uploadUrl
+* objectKey
+* expiresInSeconds
+
+Validation:
+* Auth/role: PARKING_MANAGER. DEV pass vi co effective manager authorization.
+* Tenant: lay tu token/TenantContext.
+* folder: optional, max 120, chi cho phep A-Z a-z 0-9 / _ -, khong duoc bat dau bang /, khong duoc co ..
+* contentType allowed: image/png, image/jpeg, image/webp.
+* extension phai khop contentType: png -> .png, jpeg -> .jpg/.jpeg, webp -> .webp.
+* fileName: max 255, strip path segment, thay ky tu la bang -, khong cho blank, "." hoac "..".
+* objectKey format: tenants/{tenantId}/{folder}/{uuid}-{sanitizedFileName}
+* Max file size: presign request hien tai chua validate size. Gioi han thuc te nam o client/UI hoac MinIO.
+
+Step 3: Bruno/curl - PUT file len MinIO
+
+curl mau:
+curl -i -X PUT "<UPLOAD_URL>" \
+  -H "Content-Type: image/png" \
+  --data-binary "@/home/dorriss-dev/Projects/smartpark/Parking-Building-BE/src/main/resources/demo-assets/floor-maps/demo-parking-1.png"
+
+Luu y:
+* Content-Type phai dung y het voi request presign.
+* Khong dung multipart/form-data.
+* Khong dung POST.
+* Khong sua uploadUrl.
+* Khong them Authorization bearer vao request PUT MinIO.
+
+Expected:
+* HTTP 200 hoac 204 tu MinIO.
+
+Step 4: Swagger - Presign Download
+
+Endpoint:
+GET /manager/storage/presign-download?objectKey=<OBJECT_KEY>
+
+Swagger tag:
+Manager Storage
+
+Controller:
+src/main/java/com/smartpark/swp391/modules/manager/controller/ManagerStorageController.java
+
+Method:
+presignDownload
+
+Response DTO:
+PresignDownloadResponse
+
+Expected response:
+{
+  "downloadUrl": "http://localhost:9000/smartpark/...",
+  "expiresInSeconds": 900
+}
+
+Validation:
+* Auth/role: PARKING_MANAGER.
+* objectKey phai thuoc tenant hien tai: tenants/{tenantId}/...
+* objectKey khong duoc co ..
+* Download URL het han sau 900 giay.
+
+Step 5: Browser/curl - Test Download URL
+
+curl -o /tmp/smartpark-presign-demo.png "<DOWNLOAD_URL>"
+file /tmp/smartpark-presign-demo.png
+
+Expected:
+* HTTP 200
+* file command reports PNG image data
+
+Mo DOWNLOAD_URL tren browser de xem anh.
+
+Luu y:
+* Download URL duoc ky cho method GET. Neu dung curl -I/HEAD co the bi 403 vi method khong khop chu ky. Demo bang browser hoac curl GET.
+
+Step 6: Optional - Update Floor Map
+
+Endpoint:
+PATCH /manager/floors/{id}/map
+
+Controller:
+ManagerFacilityMapController
+
+Method:
+updateFloorMap
+
+Request:
+{
+  "mapImageUrl": "<OBJECT_KEY>"
+}
+
+Contract code that:
+* mapImageUrl chap nhan http(s) URL hoac objectKey thuoc tenant hien tai.
+* objectKey phai bat dau bang tenants/{tenantId}/ va khong co ..
+
+Expected:
+* Floor map update success, response co mapImageUrl = OBJECT_KEY.
+
+Step 7: Optional - Get Floor Map
+
+Endpoint:
+GET /manager/floors/{id}/map
+
+Expected:
+* mapImageUrl/objectKey
+* coordinateMode
+* slots coordinates
+* API hien tai khong sinh mapDisplayUrl cho floor map; neu can xem anh thi goi presign download bang objectKey.
+
+Fire inspection photo flow neu muon demo:
+
+Presign photo upload:
+POST /staff/fire-inspections/photos/presign-upload
+
+Request:
+{
+  "fileName": "demo-parking-1.png",
+  "contentType": "image/png"
+}
+
+Sau khi PUT xong, submit inspection:
+POST /staff/fire-inspections
+
+Body nhan photoObjectKey. Service validate photoObjectKey phai bat dau bang tenants/{tenantId}/fire-inspections/ va khong co ...
+
+PHAN 4: SWAGGER SCRIPT NOI MIENG
+
+"Em mo Swagger va login bang DEV Vincom. Account nay co quyen demo manager va staff, nhung van nam trong tenant Vincom.
+
+O buoc nay backend khong upload file truc tiep. Backend chi validate fileName, contentType, folder, tenant hien tai, sau do tra ve uploadUrl va objectKey. UploadUrl la URL ky san, het han sau 15 phut.
+
+Em copy uploadUrl sang curl hoac Bruno de PUT raw binary truc tiep len MinIO. Luu y Content-Type phai dung y het voi luc xin presign, vi Content-Type duoc dua vao chu ky.
+
+Sau khi MinIO tra 200 hoac 204, em quay lai Swagger goi presign download bang objectKey. Backend tiep tuc validate objectKey thuoc tenant Vincom roi tra downloadUrl. Mo downloadUrl la xem duoc anh.
+
+Cach nay bao mat hon vi client khong biet secret MinIO, backend khong phai nhan raw image bytes, va objectKey van bi rang buoc theo tenant."
+
+PHAN 5: BRUNO/CURL COMMANDS READY-TO-RUN
+
+Set placeholder:
+BASE_URL="http://localhost:8080"
+ACCESS_TOKEN="<ACCESS_TOKEN>"
+OBJECT_KEY="<OBJECT_KEY>"
+UPLOAD_URL="<UPLOAD_URL>"
+DOWNLOAD_URL="<DOWNLOAD_URL>"
+DEMO_FILE_PATH="/home/dorriss-dev/Projects/smartpark/Parking-Building-BE/src/main/resources/demo-assets/floor-maps/demo-parking-1.png"
+CONTENT_TYPE="image/png"
+FLOOR_ID="<FLOOR_ID>"
+
+Login DEV:
+curl -s -X POST "$BASE_URL/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "dev@vincom.smartpark.local",
+    "password": "Password@123",
+    "deviceFingerprint": "seed-dev-vincom-device",
+    "deviceLabel": "Vincom Dev Laptop"
+  }'
+
+Presign upload:
+curl -s -X POST "$BASE_URL/manager/storage/presign-upload" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fileName": "demo-parking-1.png",
+    "contentType": "image/png",
+    "folder": "floor-maps"
+  }'
+
+PUT upload to MinIO:
+curl -i -X PUT "$UPLOAD_URL" \
+  -H "Content-Type: $CONTENT_TYPE" \
+  --data-binary "@$DEMO_FILE_PATH"
+
+Presign download:
+curl -s -G "$BASE_URL/manager/storage/presign-download" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  --data-urlencode "objectKey=$OBJECT_KEY"
+
+Check download:
+curl -o /tmp/smartpark-presign-demo.png "$DOWNLOAD_URL"
+file /tmp/smartpark-presign-demo.png
+
+Update floor map:
+curl -s -X PATCH "$BASE_URL/manager/floors/$FLOOR_ID/map" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"mapImageUrl\":\"$OBJECT_KEY\"}"
+
+Get floor map:
+curl -s "$BASE_URL/manager/floors/$FLOOR_ID/map" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+
+Bruno requests:
+* 00 Auth / 06 Login DEV Vincom
+* 02 Manager Facility / 26 Presign Storage Upload
+* PUT raw binary bang curl len uploadUrl
+* 02 Manager Facility / 27 Presign Storage Download
+* 02 Manager Facility / 23 Update Floor Map
+* 02 Manager Facility / 22 Get Floor Map
+
+PHAN 6: TROUBLESHOOTING 400
+
+Symptom: 400 SignatureDoesNotMatch / BadRequest
+Likely cause: PUT Content-Type khac voi contentType luc xin presign.
+Fix: Neu presign la image/png thi PUT phai co header -H "Content-Type: image/png" y het.
+
+Symptom: 400 SignatureDoesNotMatch / BadRequest
+Likely cause: Dung POST hoac multipart/form-data.
+Fix: Dung PUT raw binary: curl -X PUT --data-binary "@/path/file.png". Khong dung form-data.
+
+Symptom: 403 AccessDenied khi goi backend presign
+Likely cause: Token sai role hoac het han.
+Fix: Login DEV, paste access token vao Swagger Authorize hoac Bruno managerToken.
+
+Symptom: 403 AccessDenied khi PUT len MinIO
+Likely cause: UploadUrl het han hoac bi sua query string.
+Fix: Xin presign upload moi, copy nguyen uploadUrl.
+
+Symptom: 403 AccessDenied khi curl -I downloadUrl
+Likely cause: Download URL duoc ky cho GET, nhung curl -I dung HEAD.
+Fix: Dung browser hoac curl GET: curl -o /tmp/smartpark-presign-demo.png "$DOWNLOAD_URL".
+
+Symptom: 404 NoSuchBucket
+Likely cause: APP_MINIO_BUCKET sai hoac bucket chua duoc tao.
+Fix: Kiem tra MinIO running va app config bucket. App co initializer tao bucket khi credentials hop le.
+
+Symptom: 404 NoSuchKey
+Likely cause: Chua PUT file thanh cong, objectKey sai, hoac copy objectKey cua lan presign khac.
+Fix: PUT lai dung uploadUrl/objectKey vua xin.
+
+Symptom: Unsupported API call for method GET at //smartpark
+Likely cause: Endpoint MinIO co trailing slash va client cu sinh URL double slash.
+Fix: Code da normalize endpoint. Van nen de APP_MINIO_ENDPOINT=http://localhost:9000 de de doc.
+
+Symptom: Browser PUT truc tiep bi CORS
+Likely cause: MinIO CORS chua allow origin/header/method PUT.
+Fix: Demo bang curl/Bruno truoc. Neu demo browser, cau hinh MinIO CORS allow PUT va Content-Type.
+
+Symptom: Backend bao unsupported content type
+Likely cause: contentType khong thuoc image/png, image/jpeg, image/webp.
+Fix: Dung file PNG/JPEG/WebP that va khai bao dung Content-Type.
+
+Symptom: Backend bao extension/content type mismatch
+Likely cause: Vi du file .png nhung contentType image/webp.
+Fix: Dung demo-parking-1.png voi image/png.
+
+Symptom: Presign URL expired
+Likely cause: De qua 900 giay.
+Fix: Xin presign lai.
+
+Symptom: APP_MINIO_ENDPOINT trailing slash
+Likely cause: Env de http://localhost:9000/.
+Fix: Code da trim trailing slash; van co the sua env ve http://localhost:9000 de tranh nham lan khi debug.
+
+PHAN 7: CODE OPENING GUIDE
+
+Topic: Presign upload controller
+File: src/main/java/com/smartpark/swp391/modules/manager/controller/ManagerStorageController.java
+Class: ManagerStorageController
+Method: presignUpload
+Noi gi: Endpoint manager nhan fileName/contentType/folder, lay tenant tu token, goi StorageService de sinh uploadUrl.
+
+Topic: Presign download controller
+File: src/main/java/com/smartpark/swp391/modules/manager/controller/ManagerStorageController.java
+Class: ManagerStorageController
+Method: presignDownload
+Noi gi: Endpoint manager nhan objectKey, validate theo tenant trong service, tra downloadUrl het han sau 15 phut.
+
+Topic: Storage service
+File: src/main/java/com/smartpark/swp391/infrastructure/storage/service/impl/MinioStorageService.java
+Class: MinioStorageService
+Method: createPresignedUpload, createPresignedDownload
+Noi gi: Day la noi validate content type, extension, folder, objectKey tenant prefix, va sinh presigned URL PUT/GET.
+
+Topic: MinIO client/config
+File: src/main/java/com/smartpark/swp391/infrastructure/storage/config/MinioStorageConfig.java
+Class: MinioStorageConfig
+Method: minioS3Client, minioBucketInitializer
+Noi gi: Tao AWS S3-compatible client, bat path-style access, disable chunked encoding, va tao bucket khi app ready neu bucket chua co.
+
+Topic: MinIO endpoint normalization
+File: src/main/java/com/smartpark/swp391/infrastructure/storage/config/MinioStorageProperties.java
+Class: MinioStorageProperties
+Method: normalizedEndpoint
+Noi gi: Trim space va slash cuoi de endpoint khong sinh URL double slash.
+
+Topic: Tenant object key validation
+File: src/main/java/com/smartpark/swp391/infrastructure/storage/service/impl/MinioStorageService.java
+Class: MinioStorageService
+Method: requireTenantObjectKey
+Noi gi: objectKey phai bat dau bang tenants/{tenantId}/ va khong co ...
+
+Topic: Floor map update
+File: src/main/java/com/smartpark/swp391/modules/manager/service/impl/ManagerFacilityMapServiceImpl.java
+Class: ManagerFacilityMapServiceImpl
+Method: updateFloorMap, normalizeMapImageUrl
+Noi gi: Sau upload, luu objectKey vao Floor.mapImageUrl; service chi chap nhan objectKey thuoc tenant hien tai hoac URL http(s).
+
+Topic: Fire inspection photo upload
+File: src/main/java/com/smartpark/swp391/modules/staff/controller/StaffFireInspectionController.java
+Class: StaffFireInspectionController
+Method: presignInspectionPhoto, submitInspection
+Noi gi: Staff xin presign photo upload, PUT len MinIO, sau do submit inspection voi photoObjectKey.
+
+Topic: Fire inspection object key validation
+File: src/main/java/com/smartpark/swp391/modules/staff/service/impl/StaffFireInspectionServiceImpl.java
+Class: StaffFireInspectionServiceImpl
+Method: createPhotoUpload, submitInspection, requireInspectionPhotoObjectKey
+Noi gi: Photo object key duoc gioi han trong tenants/{tenantId}/fire-inspections/ va service co the tao photoDisplayUrl bang presign download.
+
+PHAN 8: FINAL CHECKLIST TRUOC DEMO
+
+* Backend env APP_MINIO_ENDPOINT khong co slash cuoi hoac code da normalize.
+* APP_MINIO_BUCKET dung.
+* MinIO running.
+* Bucket ton tai hoac backend credentials du quyen tao bucket.
+* DEV login OK.
+* File demo ton tai.
+* Content-Type dung.
+* Presign upload tra URL.
+* PUT URL tra 200/204.
+* Presign download tra URL.
+* Download URL mo duoc anh bang browser hoac curl GET.
+* Neu update floor map, FLOOR_ID la floor cua Vincom va objectKey la objectKey cua lan upload vua thanh cong.

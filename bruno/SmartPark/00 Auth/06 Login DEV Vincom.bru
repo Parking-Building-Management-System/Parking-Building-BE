@@ -1,0 +1,28 @@
+meta {
+  name: Login DEV Vincom
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "username": "dev@vincom.smartpark.local",
+    "password": "Password@123",
+    "deviceFingerprint": "seed-dev-vincom-device",
+    "deviceLabel": "Vincom Dev Laptop"
+  }
+}
+
+docs {
+  Paste the returned access token into `managerToken` for manager storage/floor-map requests. If using staff fire-inspection requests, paste the same DEV token into `staffEntryToken`.
+}

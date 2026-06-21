@@ -7,7 +7,9 @@ import com.smartpark.swp391.modules.identity.repository.PermissionRepository;
 import com.smartpark.swp391.modules.identity.repository.RoleRepository;
 import com.smartpark.swp391.modules.identity.repository.UserRepository;
 import com.smartpark.swp391.modules.identity.service.auth.AuthorityLoader;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +21,10 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 public class AuthorityLoaderImpl implements AuthorityLoader {
+
+  private static final String DEV_ROLE = "DEV";
+  private static final List<String> DEV_EFFECTIVE_ROLES =
+      List.of("SYSTEM_ADMIN", "PARKING_MANAGER", "STAFF");
 
   UserRepository userRepository;
   RoleRepository roleRepository;
@@ -36,7 +42,7 @@ public class AuthorityLoaderImpl implements AuthorityLoader {
                 () -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Không tìm thấy khách hàng"));
 
     // 2. Get Roles
-    List<String> roles = roleRepository.findRoleNamesByUserId(userId);
+    List<String> roles = expandEffectiveRoles(roleRepository.findRoleNamesByUserId(userId));
 
     // 3. Get Permissions
     List<String> permissions = permissionRepository.findPermissionNamesByUserId(userId);
@@ -45,7 +51,19 @@ public class AuthorityLoaderImpl implements AuthorityLoader {
     return new SessionAuthzCache(
         userId,
         tenantId,
-        roles != null ? roles : List.of(),
+        roles,
         permissions != null ? permissions : List.of());
+  }
+
+  private List<String> expandEffectiveRoles(List<String> roles) {
+    if (roles == null || roles.isEmpty()) {
+      return List.of();
+    }
+
+    Set<String> effectiveRoles = new LinkedHashSet<>(roles);
+    if (effectiveRoles.contains(DEV_ROLE)) {
+      effectiveRoles.addAll(DEV_EFFECTIVE_ROLES);
+    }
+    return List.copyOf(effectiveRoles);
   }
 }

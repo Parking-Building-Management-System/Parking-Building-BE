@@ -1,0 +1,79 @@
+SmartPark Vincom single-customer demo accounts
+
+1. Scope demo
+
+SmartPark hiện demo theo single-customer Vincom.
+Data model vẫn giữ tenants, tenant_id và tenant-scoped queries làm data boundary nội bộ.
+Không demo tenant management trong buổi demo này.
+
+2. DEV super demo account
+
+username: dev@vincom.smartpark.local
+password: Password@123
+deviceFingerprint: seed-dev-vincom-device
+deviceLabel: Vincom Dev Laptop
+tenant: Vincom Mega Mall
+parking: Vincom Dong Khoi
+kiosk: Dong Khoi Main Gate
+kiosk type: MIXED
+
+DEV dùng để demo Admin/System APIs, Manager Facility/Pricing/PCCC APIs, Staff Check-in APIs,
+Staff Exit APIs và Staff Fire Inspection APIs.
+
+3. Staff fallback account
+
+username: staff@vincom.smartpark.local
+password: Password@123
+deviceFingerprint: seed-vincom-staff-device
+deviceLabel: Vincom Staff Tablet
+parking: Vincom Dong Khoi
+kiosk: Dong Khoi Main Gate
+kiosk type: MIXED
+
+Staff fallback dùng để demo check-in nếu muốn account staff riêng.
+
+4. Login payloads
+
+DEV login:
+
+{
+  "username": "dev@vincom.smartpark.local",
+  "password": "Password@123",
+  "deviceFingerprint": "seed-dev-vincom-device",
+  "deviceLabel": "Vincom Dev Laptop"
+}
+
+Staff fallback login:
+
+{
+  "username": "staff@vincom.smartpark.local",
+  "password": "Password@123",
+  "deviceFingerprint": "seed-vincom-staff-device",
+  "deviceLabel": "Vincom Staff Tablet"
+}
+
+5. Expected /auth/me
+
+DEV:
+
+username: dev@vincom.smartpark.local
+tenantId: Vincom tenant id
+roles/effective roles: DEV, SYSTEM_ADMIN, PARKING_MANAGER, STAFF
+permissions: all current permissions from the permissions table
+workContext.parkingName: Vincom Dong Khoi
+workContext.kioskName: Dong Khoi Main Gate
+workContext.kioskType: MIXED
+
+Staff fallback:
+
+roles/effective roles: STAFF
+workContext.parkingName: Vincom Dong Khoi
+workContext.kioskName: Dong Khoi Main Gate
+workContext.kioskType: MIXED
+
+6. Demo notes
+
+Do not use a random fingerprint for DEV or staff fallback.
+Use seed-dev-vincom-device for DEV.
+Use seed-vincom-staff-device for staff fallback.
+If the fingerprint changes, backend creates a PENDING device and returns DEVICE_NOT_TRUST.

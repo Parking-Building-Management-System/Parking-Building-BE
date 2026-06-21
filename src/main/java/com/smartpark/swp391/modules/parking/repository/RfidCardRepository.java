@@ -34,7 +34,7 @@ public interface RfidCardRepository extends JpaRepository<RfidCard, UUID> {
           FROM RfidCard c
           WHERE c.tenant.id = :tenantId
             AND c.status = :status
-            AND (:search IS NULL OR lower(c.code) LIKE lower(concat('%', :search, '%')))
+            AND (:search IS NULL OR lower(c.code) LIKE lower(concat('%', cast(:search as string), '%')))
             AND NOT EXISTS (
               SELECT 1
               FROM ParkingSession ps

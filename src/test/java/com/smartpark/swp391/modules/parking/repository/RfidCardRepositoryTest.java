@@ -88,6 +88,25 @@ class RfidCardRepositoryTest {
     assertThat(cards).extracting(RfidCard::getCode).doesNotContain(usedCard.getCode());
   }
 
+  @Test
+  void availableCardsAcceptNullSearch() {
+    Tenant tenant = tenantRepository.findBySlug("vincom-mega-mall").orElseThrow();
+    Parking parking =
+        parkingRepository
+            .findByTenantIdAndCodeIgnoreCaseAndIsDeletedFalse(tenant.getId(), "VINCOM-DK")
+            .orElseThrow();
+
+    var cards =
+        rfidCardRepository.findAvailableForStaffParking(
+            tenant.getId(),
+            parking.getId(),
+            RfidCardStatus.ACTIVE,
+            null,
+            PageRequest.of(0, 5));
+
+    assertThat(cards).isNotEmpty();
+  }
+
   private void createActiveSession(Tenant tenant, Parking parking, RfidCard card) {
     Slot slot =
         slotRepository

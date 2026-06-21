@@ -50,6 +50,16 @@ class MinioStorageServiceTest {
     verify(s3).doesObjectExist(bucket, objectKey);
   }
 
+  @Test
+  void minioEndpointNormalizationRemovesTrailingSlashesBeforeClientConfigUsesIt() {
+    MinioStorageProperties properties =
+        new MinioStorageProperties(
+            " http://localhost:9000/// ", "minioadmin", "minioadmin", "minio", "smartpark");
+
+    assertThat(properties.normalizedEndpoint()).isEqualTo("http://localhost:9000");
+    assertThat(properties.configured()).isTrue();
+  }
+
   @SuppressWarnings("unchecked")
   private ObjectProvider<AmazonS3> emptyS3Provider() {
     ObjectProvider<AmazonS3> provider = org.mockito.Mockito.mock(ObjectProvider.class);

@@ -19,10 +19,10 @@ headers {
 
 body:json {
   {
-    "mapImageUrl": "https://example.com/maps/b1.png"
+    "mapImageUrl": "{{objectKey}}"
   }
 }
 
 docs {
-  Map upload flow: presign upload, PUT the file to the returned uploadUrl outside Bruno if needed, then update this mapImageUrl/object URL and fetch the map.
+  Map upload flow: presign upload, PUT the file to the returned uploadUrl outside Bruno if needed, then set `objectKey` from the presign response and update the floor map.
 }

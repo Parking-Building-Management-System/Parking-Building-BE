@@ -7,7 +7,21 @@ public record MinioStorageProperties(
     String endpoint, String accessKey, String secretKey, String signingRegion, String bucket) {
 
   public boolean configured() {
-    return hasText(endpoint) && hasText(accessKey) && hasText(secretKey) && hasText(bucket);
+    return hasText(normalizedEndpoint())
+        && hasText(accessKey)
+        && hasText(secretKey)
+        && hasText(bucket);
+  }
+
+  public String normalizedEndpoint() {
+    if (endpoint == null) {
+      return null;
+    }
+    String normalized = endpoint.trim();
+    while (normalized.endsWith("/")) {
+      normalized = normalized.substring(0, normalized.length() - 1);
+    }
+    return normalized;
   }
 
   private boolean hasText(String value) {

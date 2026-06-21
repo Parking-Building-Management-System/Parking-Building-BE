@@ -52,6 +52,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class AuthenticationServiceImpl implements AuthenticationService {
 
+  private static final String DEV_ROLE = "DEV";
+
   @Value("${jwt.refreshable-duration}")
   @NonFinal
   long refreshableDurationSeconds;
@@ -93,6 +95,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     boolean systemAdmin = roles.contains("SYSTEM_ADMIN");
     boolean parkingManager = roles.contains("PARKING_MANAGER");
     boolean staff = roles.contains("STAFF");
+    boolean dev = roles.contains(DEV_ROLE);
 
     if (!systemAdmin && user.getTenant().getStatus() != TenantStatus.ACTIVE) {
       throw new ApiException(ErrorCode.FORBIDDEN_ACTION);
@@ -100,7 +103,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
     // 3. Device Check
     Device device = resolveLoginDevice(user, request, systemAdmin, parkingManager);
-    if (staff) {
+    if (staff || dev) {
       ensureStaffDeviceWorkContext(user, device);
     }
 

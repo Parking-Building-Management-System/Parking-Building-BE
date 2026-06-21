@@ -36,7 +36,7 @@ public class MinioStorageConfig {
     return AmazonS3ClientBuilder.standard()
         .withEndpointConfiguration(
             new AwsClientBuilder.EndpointConfiguration(
-                properties.endpoint(), properties.signingRegion()))
+                properties.normalizedEndpoint(), properties.signingRegion()))
         .withCredentials(
             new AWSStaticCredentialsProvider(
                 new BasicAWSCredentials(properties.accessKey(), properties.secretKey())))
