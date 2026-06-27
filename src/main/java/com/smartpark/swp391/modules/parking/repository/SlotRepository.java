@@ -88,6 +88,30 @@ public interface SlotRepository extends JpaRepository<Slot, UUID>, JpaSpecificat
       @Param("status") SlotStatus status,
       Pageable pageable);
 
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query(
+      """
+          SELECT s
+          FROM Slot s
+          JOIN FETCH s.parking p
+          JOIN FETCH s.zone z
+          JOIN FETCH z.vehicleType vt
+          LEFT JOIN FETCH s.floor f
+          WHERE s.tenant.id = :tenantId
+            AND p.id = :parkingId
+            AND vt.id = :vehicleTypeId
+            AND s.status = :status
+            AND s.isDeleted = false
+            AND z.isDeleted = false
+          ORDER BY LOWER(COALESCE(z.name, '')), LOWER(z.code), LOWER(s.code)
+          """)
+  List<Slot> findFirstAvailableForCheckInByVehicleType(
+      @Param("tenantId") UUID tenantId,
+      @Param("parkingId") UUID parkingId,
+      @Param("vehicleTypeId") UUID vehicleTypeId,
+      @Param("status") SlotStatus status,
+      Pageable pageable);
+
   @Modifying
   @Query(
       """

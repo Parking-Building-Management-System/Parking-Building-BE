@@ -86,15 +86,10 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
       throw new ApiException(ErrorCode.DUPLICATE_RESOURCE, "RFID card is already in use");
     }
 
-    Slot slot =
-        slotRepository
-            .findFirstAvailableForCheckIn(
-                tenantId, parking.getId(), SlotStatus.AVAILABLE, PageRequest.of(0, 1))
-            .stream()
-            .findFirst()
-            .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "No available slot"));
-
-    VehicleType vehicleType = resolveVehicleType(request.vehicleTypeId(), slot);
+    SlotAssignment slotAssignment =
+        assignSlot(tenantId, parking.getId(), request.vehicleTypeId());
+    Slot slot = slotAssignment.slot();
+    VehicleType vehicleType = slotAssignment.vehicleType();
     LocalDateTime now = LocalDateTime.now();
 
     ParkingSession session =
@@ -187,19 +182,50 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
         .build();
   }
 
-  private VehicleType resolveVehicleType(UUID vehicleTypeId, Slot slot) {
+  private SlotAssignment assignSlot(UUID tenantId, UUID parkingId, UUID vehicleTypeId) {
     if (vehicleTypeId != null) {
-      VehicleType vehicleType =
-          vehicleTypeRepository
-              .findById(vehicleTypeId)
+      VehicleType vehicleType = getActiveVehicleType(vehicleTypeId);
+      Slot slot =
+          slotRepository
+              .findFirstAvailableForCheckInByVehicleType(
+                  tenantId,
+                  parkingId,
+                  vehicleType.getId(),
+                  SlotStatus.AVAILABLE,
+                  PageRequest.of(0, 1))
+              .stream()
+              .findFirst()
               .orElseThrow(
-                  () -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Vehicle type not found"));
-      if (!vehicleType.isActive()) {
-        throw new ApiException(ErrorCode.INVALID_INPUT, "Vehicle type is inactive");
-      }
-      return vehicleType;
+                  () ->
+                      new ApiException(
+                          ErrorCode.RESOURCE_NOT_FOUND,
+                          "No available slot for selected vehicle type"));
+      return new SlotAssignment(slot, vehicleType);
     }
 
+    Slot slot =
+        slotRepository
+            .findFirstAvailableForCheckIn(
+                tenantId, parkingId, SlotStatus.AVAILABLE, PageRequest.of(0, 1))
+            .stream()
+            .findFirst()
+            .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "No available slot"));
+    return new SlotAssignment(slot, resolveVehicleTypeFromSlot(slot));
+  }
+
+  private VehicleType getActiveVehicleType(UUID vehicleTypeId) {
+    VehicleType vehicleType =
+        vehicleTypeRepository
+            .findById(vehicleTypeId)
+            .orElseThrow(
+                () -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Vehicle type not found"));
+    if (!vehicleType.isActive()) {
+      throw new ApiException(ErrorCode.INVALID_INPUT, "Vehicle type is inactive");
+    }
+    return vehicleType;
+  }
+
+  private VehicleType resolveVehicleTypeFromSlot(Slot slot) {
     VehicleType zoneVehicleType = slot.getZone().getVehicleType();
     if (zoneVehicleType == null) {
       throw new ApiException(
@@ -401,11 +427,14 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
   }
 
   private UUID resolveParkingId(ParkingSessionCheckInRequest request) {
-    if (request.parkingId() != null) {
-      return request.parkingId();
-    }
     StaffWorkContextResponse workContext = staffWorkContextService.requireCurrentContext();
-    return workContext.parkingId();
+    if (request.parkingId() == null) {
+      return workContext.parkingId();
+    }
+    if (!request.parkingId().equals(workContext.parkingId())) {
+      throw new ApiException(ErrorCode.FORBIDDEN_ACTION, "CHECK_IN_PARKING_NOT_IN_KIOSK_CONTEXT");
+    }
+    return request.parkingId();
   }
 
   private String normalizePlate(String plateNumber) {
@@ -422,6 +451,8 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
   private String normalizeOptional(String value) {
     return value == null || value.isBlank() ? null : value.trim();
   }
+
+  private record SlotAssignment(Slot slot, VehicleType vehicleType) {}
 
   private record ExitPreview(ExitPreviewResponse response, PricingQuoteResponse quote) {}
 }

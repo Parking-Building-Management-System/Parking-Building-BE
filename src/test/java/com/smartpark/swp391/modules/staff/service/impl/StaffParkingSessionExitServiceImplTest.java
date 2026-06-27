@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.smartpark.swp391.common.exception.ApiException;
@@ -29,6 +31,7 @@ import com.smartpark.swp391.modules.pricing.dto.PricingQuoteResponse;
 import com.smartpark.swp391.modules.pricing.entity.PricingRule;
 import com.smartpark.swp391.modules.pricing.repository.PricingRuleRepository;
 import com.smartpark.swp391.modules.pricing.service.PricingQuoteService;
+import com.smartpark.swp391.modules.staff.dto.ParkingSessionCheckInRequest;
 import com.smartpark.swp391.modules.staff.dto.StaffWorkContextResponse;
 import com.smartpark.swp391.modules.staff.dto.exit.CompleteExitRequest;
 import com.smartpark.swp391.modules.staff.dto.exit.ExitDecision;
@@ -46,6 +49,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
@@ -74,6 +78,179 @@ class StaffParkingSessionExitServiceImplTest {
   @AfterEach
   void tearDown() {
     TenantContext.clear();
+  }
+
+  @Test
+  void checkInWithVehicleTypeAssignsMatchingZoneSlot() {
+    VehicleType motorbike = VehicleType.builder().name("Motorcycle").code("MOTORBIKE").build();
+    motorbike.setId(UUID.randomUUID());
+    Zone motorbikeZone =
+        Zone.builder()
+            .tenant(data.tenant)
+            .parking(data.parking)
+            .floor(data.floor)
+            .name("Motorcycles")
+            .code("B")
+            .vehicleType(motorbike)
+            .build();
+    motorbikeZone.setId(UUID.randomUUID());
+    Slot motorbikeSlot =
+        Slot.builder()
+            .tenant(data.tenant)
+            .parking(data.parking)
+            .zone(motorbikeZone)
+            .floor(data.floor)
+            .code("B-01")
+            .slotNumber("B1")
+            .status(SlotStatus.AVAILABLE)
+            .build();
+    motorbikeSlot.setId(UUID.randomUUID());
+    stubCheckInBase(data.card);
+    when(vehicleTypeRepository.findById(motorbike.getId())).thenReturn(Optional.of(motorbike));
+    when(slotRepository.findFirstAvailableForCheckInByVehicleType(
+            data.tenant.getId(),
+            data.parking.getId(),
+            motorbike.getId(),
+            SlotStatus.AVAILABLE,
+            PageRequest.of(0, 1)))
+        .thenReturn(List.of(motorbikeSlot));
+    when(parkingSessionRepository.save(any(ParkingSession.class)))
+        .thenAnswer(
+            invocation -> {
+              ParkingSession session = invocation.getArgument(0);
+              session.setId(UUID.randomUUID());
+              return session;
+            });
+
+    var response =
+        service()
+            .checkIn(
+                new ParkingSessionCheckInRequest(
+                    "demo-bike-001",
+                    data.card.getCode(),
+                    data.parking.getId(),
+                    motorbike.getId(),
+                    null));
+
+    ArgumentCaptor<ParkingSession> sessionCaptor = ArgumentCaptor.forClass(ParkingSession.class);
+    verify(parkingSessionRepository).save(sessionCaptor.capture());
+    ParkingSession savedSession = sessionCaptor.getValue();
+    assertThat(savedSession.getStatus()).isEqualTo(ParkingSessionStatus.ACTIVE);
+    assertThat(savedSession.getVehicleType().getId()).isEqualTo(motorbike.getId());
+    assertThat(savedSession.getSlot().getZone().getVehicleType().getId()).isEqualTo(motorbike.getId());
+    assertThat(motorbikeSlot.getStatus()).isEqualTo(SlotStatus.OCCUPIED);
+    assertThat(response.assignedSlotId()).isEqualTo(motorbikeSlot.getId());
+  }
+
+  @Test
+  void checkInWithVehicleTypeFailsWhenNoMatchingSlotAvailable() {
+    stubCheckInBase(data.card);
+    when(vehicleTypeRepository.findById(data.vehicleType.getId()))
+        .thenReturn(Optional.of(data.vehicleType));
+    when(slotRepository.findFirstAvailableForCheckInByVehicleType(
+            data.tenant.getId(),
+            data.parking.getId(),
+            data.vehicleType.getId(),
+            SlotStatus.AVAILABLE,
+            PageRequest.of(0, 1)))
+        .thenReturn(List.of());
+
+    assertThatThrownBy(
+            () ->
+                service()
+                    .checkIn(
+                        new ParkingSessionCheckInRequest(
+                            "demo-car-001",
+                            data.card.getCode(),
+                            data.parking.getId(),
+                            data.vehicleType.getId(),
+                            null)))
+        .isInstanceOf(ApiException.class)
+        .hasMessage("No available slot for selected vehicle type");
+    verify(parkingSessionRepository, never()).save(any(ParkingSession.class));
+  }
+
+  @Test
+  void checkInWithoutVehicleTypeFallsBackToSlotZoneVehicleType() {
+    data.slot.setStatus(SlotStatus.AVAILABLE);
+    stubCheckInBase(data.card);
+    when(slotRepository.findFirstAvailableForCheckIn(
+            data.tenant.getId(),
+            data.parking.getId(),
+            SlotStatus.AVAILABLE,
+            PageRequest.of(0, 1)))
+        .thenReturn(List.of(data.slot));
+    when(parkingSessionRepository.save(any(ParkingSession.class)))
+        .thenAnswer(
+            invocation -> {
+              ParkingSession session = invocation.getArgument(0);
+              session.setId(UUID.randomUUID());
+              return session;
+            });
+
+    service()
+        .checkIn(
+            new ParkingSessionCheckInRequest(
+                "demo-car-002", data.card.getCode(), data.parking.getId(), null, null));
+
+    ArgumentCaptor<ParkingSession> sessionCaptor = ArgumentCaptor.forClass(ParkingSession.class);
+    verify(parkingSessionRepository).save(sessionCaptor.capture());
+    ParkingSession savedSession = sessionCaptor.getValue();
+    assertThat(savedSession.getVehicleType().getId()).isEqualTo(data.vehicleType.getId());
+    assertThat(data.slot.getStatus()).isEqualTo(SlotStatus.OCCUPIED);
+  }
+
+  @Test
+  void checkInRejectsRfidCardAlreadyInUseBeforeSlotLookup() {
+    when(staffWorkContextService.requireCurrentContext())
+        .thenReturn(workContext(data.parking.getId()));
+    when(tenantRepository.getReferenceById(data.tenant.getId())).thenReturn(data.tenant);
+    when(parkingRepository.findByIdAndTenantIdAndIsDeletedFalse(
+            data.parking.getId(), data.tenant.getId()))
+        .thenReturn(Optional.of(data.parking));
+    when(rfidCardRepository.findByTenantIdAndCodeIgnoreCase(
+            data.tenant.getId(), data.card.getCode()))
+        .thenReturn(Optional.of(data.card));
+    when(parkingSessionRepository.existsByTenantIdAndRfidCardIdAndStatus(
+            data.tenant.getId(), data.card.getId(), ParkingSessionStatus.ACTIVE))
+        .thenReturn(true);
+
+    assertThatThrownBy(
+            () ->
+                service()
+                    .checkIn(
+                        new ParkingSessionCheckInRequest(
+                            "demo-car-003",
+                            data.card.getCode(),
+                            data.parking.getId(),
+                            data.vehicleType.getId(),
+                            null)))
+        .isInstanceOf(ApiException.class)
+        .hasMessage("RFID card is already in use");
+    verify(slotRepository, never())
+        .findFirstAvailableForCheckInByVehicleType(any(), any(), any(), any(), any());
+    verify(slotRepository, never()).findFirstAvailableForCheckIn(any(), any(), any(), any());
+  }
+
+  @Test
+  void checkInParkingOutsideWorkContextRejected() {
+    UUID otherParkingId = UUID.randomUUID();
+    when(staffWorkContextService.requireCurrentContext())
+        .thenReturn(workContext(data.parking.getId()));
+
+    assertThatThrownBy(
+            () ->
+                service()
+                    .checkIn(
+                        new ParkingSessionCheckInRequest(
+                            "demo-car-004",
+                            data.card.getCode(),
+                            otherParkingId,
+                            data.vehicleType.getId(),
+                            null)))
+        .isInstanceOf(ApiException.class)
+        .hasMessage("CHECK_IN_PARKING_NOT_IN_KIOSK_CONTEXT");
+    verify(parkingRepository, never()).findByIdAndTenantIdAndIsDeletedFalse(any(), any());
   }
 
   @Test
@@ -280,6 +457,20 @@ class StaffParkingSessionExitServiceImplTest {
     when(pricingRuleRepository.findById(data.rule.getId())).thenReturn(Optional.of(data.rule));
   }
 
+  private void stubCheckInBase(RfidCard card) {
+    when(staffWorkContextService.requireCurrentContext())
+        .thenReturn(workContext(data.parking.getId()));
+    when(tenantRepository.getReferenceById(data.tenant.getId())).thenReturn(data.tenant);
+    when(parkingRepository.findByIdAndTenantIdAndIsDeletedFalse(
+            data.parking.getId(), data.tenant.getId()))
+        .thenReturn(Optional.of(data.parking));
+    when(rfidCardRepository.findByTenantIdAndCodeIgnoreCase(data.tenant.getId(), card.getCode()))
+        .thenReturn(Optional.of(card));
+    when(parkingSessionRepository.existsByTenantIdAndRfidCardIdAndStatus(
+            data.tenant.getId(), card.getId(), ParkingSessionStatus.ACTIVE))
+        .thenReturn(false);
+  }
+
   private StaffParkingSessionServiceImpl service() {
     return new StaffParkingSessionServiceImpl(
         parkingSessionRepository,
@@ -336,7 +527,14 @@ class StaffParkingSessionExitServiceImplTest {
     Floor floor = Floor.builder().tenant(tenant).parking(parking).name("B1").code("B1").build();
     floor.setId(UUID.randomUUID());
     Zone zone =
-        Zone.builder().tenant(tenant).parking(parking).floor(floor).name("A").code("A").build();
+        Zone.builder()
+            .tenant(tenant)
+            .parking(parking)
+            .floor(floor)
+            .name("A")
+            .code("A")
+            .vehicleType(vehicleType)
+            .build();
     zone.setId(UUID.randomUUID());
     Slot slot =
         Slot.builder()
