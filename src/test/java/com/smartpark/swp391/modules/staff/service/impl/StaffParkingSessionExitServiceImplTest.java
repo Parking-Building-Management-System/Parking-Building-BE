@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.smartpark.swp391.common.exception.ApiException;
+import com.smartpark.swp391.infrastructure.storage.service.StorageService;
 import com.smartpark.swp391.infrastructure.tenant.TenantContext;
 import com.smartpark.swp391.modules.identity.entity.Tenant;
 import com.smartpark.swp391.modules.identity.repository.TenantRepository;
@@ -66,6 +67,7 @@ class StaffParkingSessionExitServiceImplTest {
   @Mock StaffWorkContextService staffWorkContextService;
   @Mock PricingQuoteService pricingQuoteService;
   @Mock PricingRuleRepository pricingRuleRepository;
+  @Mock StorageService storageService;
 
   TestData data;
 
@@ -131,6 +133,7 @@ class StaffParkingSessionExitServiceImplTest {
                     data.card.getCode(),
                     data.parking.getId(),
                     motorbike.getId(),
+                    null,
                     null));
 
     ArgumentCaptor<ParkingSession> sessionCaptor = ArgumentCaptor.forClass(ParkingSession.class);
@@ -168,6 +171,7 @@ class StaffParkingSessionExitServiceImplTest {
                             data.card.getCode(),
                             data.parking.getId(),
                             data.vehicleType.getId(),
+                            null,
                             null)))
         .isInstanceOf(ApiException.class)
         .hasMessage("No available slot for selected vehicle type");
@@ -195,13 +199,55 @@ class StaffParkingSessionExitServiceImplTest {
     service()
         .checkIn(
             new ParkingSessionCheckInRequest(
-                "demo-car-002", data.card.getCode(), data.parking.getId(), null, null));
+                "demo-car-002", data.card.getCode(), data.parking.getId(), null, null, null));
 
     ArgumentCaptor<ParkingSession> sessionCaptor = ArgumentCaptor.forClass(ParkingSession.class);
     verify(parkingSessionRepository).save(sessionCaptor.capture());
     ParkingSession savedSession = sessionCaptor.getValue();
     assertThat(savedSession.getVehicleType().getId()).isEqualTo(data.vehicleType.getId());
     assertThat(data.slot.getStatus()).isEqualTo(SlotStatus.OCCUPIED);
+  }
+
+  @Test
+  void checkInPersistsEntryAndLicensePlateImages() {
+    data.slot.setStatus(SlotStatus.AVAILABLE);
+    stubCheckInBase(data.card);
+    when(vehicleTypeRepository.findByIdAndDeletedFalse(data.vehicleType.getId()))
+        .thenReturn(Optional.of(data.vehicleType));
+    when(slotRepository.findFirstAvailableForCheckInByVehicleType(
+            data.tenant.getId(),
+            data.parking.getId(),
+            data.vehicleType.getId(),
+            SlotStatus.AVAILABLE,
+            PageRequest.of(0, 1)))
+        .thenReturn(List.of(data.slot));
+    when(parkingSessionRepository.save(any(ParkingSession.class)))
+        .thenAnswer(
+            invocation -> {
+              ParkingSession session = invocation.getArgument(0);
+              session.setId(UUID.randomUUID());
+              return session;
+            });
+
+    var response =
+        service()
+            .checkIn(
+                new ParkingSessionCheckInRequest(
+                    "demo-photo-001",
+                    data.card.getCode(),
+                    data.parking.getId(),
+                    data.vehicleType.getId(),
+                    "https://cdn.example.com/entry.jpg",
+                    "https://cdn.example.com/plate.jpg"));
+
+    ArgumentCaptor<ParkingSession> sessionCaptor = ArgumentCaptor.forClass(ParkingSession.class);
+    verify(parkingSessionRepository).save(sessionCaptor.capture());
+    ParkingSession savedSession = sessionCaptor.getValue();
+    assertThat(savedSession.getEntryImageUrl()).isEqualTo("https://cdn.example.com/entry.jpg");
+    assertThat(savedSession.getLicensePlateImageUrl())
+        .isEqualTo("https://cdn.example.com/plate.jpg");
+    assertThat(response.entryImageUrl()).isEqualTo("https://cdn.example.com/entry.jpg");
+    assertThat(response.licensePlateImageUrl()).isEqualTo("https://cdn.example.com/plate.jpg");
   }
 
   @Test
@@ -228,6 +274,7 @@ class StaffParkingSessionExitServiceImplTest {
                             data.card.getCode(),
                             data.parking.getId(),
                             data.vehicleType.getId(),
+                            null,
                             null)))
         .isInstanceOf(ApiException.class)
         .hasMessage("RFID card is already in use");
@@ -251,6 +298,7 @@ class StaffParkingSessionExitServiceImplTest {
                             data.card.getCode(),
                             otherParkingId,
                             data.vehicleType.getId(),
+                            null,
                             null)))
         .isInstanceOf(ApiException.class)
         .hasMessage("CHECK_IN_PARKING_NOT_IN_KIOSK_CONTEXT");
@@ -297,6 +345,18 @@ class StaffParkingSessionExitServiceImplTest {
     assertThat(response.exitDecision()).isEqualTo(ExitDecision.COLLECT_CASH);
     assertThat(response.amountDue()).isEqualByComparingTo("30000");
     assertThat(response.totalAmount()).isEqualByComparingTo("30000");
+  }
+
+  @Test
+  void exitPreviewReturnsEntryVerificationImages() {
+    data.session.setEntryImageUrl("https://cdn.example.com/entry.jpg");
+    data.session.setLicensePlateImageUrl("https://cdn.example.com/plate.jpg");
+    stubPreview(data);
+
+    var response = service().previewExit(new ExitPreviewRequest(data.card.getCode()));
+
+    assertThat(response.entryImageUrl()).isEqualTo("https://cdn.example.com/entry.jpg");
+    assertThat(response.licensePlateImageUrl()).isEqualTo("https://cdn.example.com/plate.jpg");
   }
 
   @Test
@@ -485,7 +545,8 @@ class StaffParkingSessionExitServiceImplTest {
         tenantRepository,
         staffWorkContextService,
         pricingQuoteService,
-        pricingRuleRepository);
+        pricingRuleRepository,
+        storageService);
   }
 
   private StaffWorkContextResponse workContext(UUID parkingId) {

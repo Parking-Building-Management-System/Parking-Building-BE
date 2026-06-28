@@ -9,4 +9,5 @@ public record ParkingSessionCheckInRequest(
     @NotBlank @Size(max = 100) String cardCode,
     UUID parkingId,
     UUID vehicleTypeId,
-    @Size(max = 1000) String entryImageUrl) {}
+    @Size(max = 1000) String entryImageUrl,
+    @Size(max = 1000) String licensePlateImageUrl) {}

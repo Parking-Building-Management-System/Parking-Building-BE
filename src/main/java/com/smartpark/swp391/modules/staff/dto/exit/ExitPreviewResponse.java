@@ -15,6 +15,8 @@ public record ExitPreviewResponse(
     String floorName,
     String zoneName,
     String slotCode,
+    String entryImageUrl,
+    String licensePlateImageUrl,
     LocalDateTime checkInAt,
     LocalDateTime paidAt,
     LocalDateTime exitDeadline,

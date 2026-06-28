@@ -4,6 +4,8 @@ import com.smartpark.swp391.common.exception.ErrorCode;
 import com.smartpark.swp391.common.response.ApiResponse;
 import com.smartpark.swp391.modules.staff.dto.ParkingSessionCheckInRequest;
 import com.smartpark.swp391.modules.staff.dto.ParkingSessionCheckInResponse;
+import com.smartpark.swp391.modules.staff.dto.ParkingSessionPhotoPresignRequest;
+import com.smartpark.swp391.modules.staff.dto.ParkingSessionPhotoPresignResponse;
 import com.smartpark.swp391.modules.staff.dto.exit.CompleteExitRequest;
 import com.smartpark.swp391.modules.staff.dto.exit.CompleteExitResponse;
 import com.smartpark.swp391.modules.staff.dto.exit.ExitPreviewRequest;
@@ -64,7 +66,8 @@ public class StaffParkingSessionController {
                                     "cardCode": "VIN-RFID-001",
                                     "parkingId": "8fe2f5ec-2f7b-3760-9f46-c4fc5c1f5d5e",
                                     "vehicleTypeId": "a6b4cdbd-74c8-45bc-9ac2-b533423a7892",
-                                    "entryImageUrl": "https://example.com/entry/51A-12345.jpg"
+                                    "entryImageUrl": "tenants/.../parking-sessions/entry-verification/entry-overview/51A-12345.jpg",
+                                    "licensePlateImageUrl": "tenants/.../parking-sessions/entry-verification/license-plate/51A-12345.jpg"
                                   }
                                   """))))
   @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -83,6 +86,24 @@ public class StaffParkingSessionController {
             .result(result)
             .timestamp(Instant.now())
             .path("/staff/parking-sessions/check-in")
+            .build());
+  }
+
+  @PostMapping("/photos/presign-upload")
+  @Operation(summary = "Create presigned upload URL for staff entry verification photos")
+  public ResponseEntity<ApiResponse<ParkingSessionPhotoPresignResponse>> presignEntryPhoto(
+      @Valid @RequestBody ParkingSessionPhotoPresignRequest request,
+      @AuthenticationPrincipal Jwt jwt) {
+    ParkingSessionPhotoPresignResponse result =
+        staffTenantContext.call(jwt, () -> staffParkingSessionService.createPhotoUpload(request));
+
+    return ResponseEntity.ok(
+        ApiResponse.<ParkingSessionPhotoPresignResponse>builder()
+            .code(ErrorCode.SUCCESS.getCode())
+            .message(ErrorCode.SUCCESS.getDefaultMessage())
+            .result(result)
+            .timestamp(Instant.now())
+            .path("/staff/parking-sessions/photos/presign-upload")
             .build());
   }
 

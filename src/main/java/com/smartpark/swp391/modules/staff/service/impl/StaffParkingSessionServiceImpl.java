@@ -2,6 +2,9 @@ package com.smartpark.swp391.modules.staff.service.impl;
 
 import com.smartpark.swp391.common.exception.ApiException;
 import com.smartpark.swp391.common.exception.ErrorCode;
+import com.smartpark.swp391.infrastructure.storage.dto.PresignedDownload;
+import com.smartpark.swp391.infrastructure.storage.dto.PresignedUpload;
+import com.smartpark.swp391.infrastructure.storage.service.StorageService;
 import com.smartpark.swp391.infrastructure.tenant.TenantContext;
 import com.smartpark.swp391.modules.identity.entity.Tenant;
 import com.smartpark.swp391.modules.identity.repository.TenantRepository;
@@ -25,6 +28,8 @@ import com.smartpark.swp391.modules.pricing.repository.PricingRuleRepository;
 import com.smartpark.swp391.modules.pricing.service.PricingQuoteService;
 import com.smartpark.swp391.modules.staff.dto.ParkingSessionCheckInRequest;
 import com.smartpark.swp391.modules.staff.dto.ParkingSessionCheckInResponse;
+import com.smartpark.swp391.modules.staff.dto.ParkingSessionPhotoPresignRequest;
+import com.smartpark.swp391.modules.staff.dto.ParkingSessionPhotoPresignResponse;
 import com.smartpark.swp391.modules.staff.dto.StaffWorkContextResponse;
 import com.smartpark.swp391.modules.staff.dto.exit.CompleteExitRequest;
 import com.smartpark.swp391.modules.staff.dto.exit.CompleteExitResponse;
@@ -38,6 +43,8 @@ import com.smartpark.swp391.modules.vehicle.entity.VehicleType;
 import com.smartpark.swp391.modules.vehicle.repository.VehicleTypeRepository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -51,6 +58,9 @@ import org.springframework.transaction.annotation.Transactional;
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 public class StaffParkingSessionServiceImpl implements StaffParkingSessionService {
 
+  private static final Set<String> ALLOWED_PHOTO_CONTENT_TYPES =
+      Set.of("image/jpeg", "image/png", "image/webp");
+
   ParkingSessionRepository parkingSessionRepository;
   ParkingRepository parkingRepository;
   RfidCardRepository rfidCardRepository;
@@ -60,6 +70,7 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
   StaffWorkContextService staffWorkContextService;
   PricingQuoteService pricingQuoteService;
   PricingRuleRepository pricingRuleRepository;
+  StorageService storageService;
 
   @Override
   @Transactional
@@ -104,6 +115,7 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
             .checkInAt(now)
             .status(ParkingSessionStatus.ACTIVE)
             .entryImageUrl(normalizeOptional(request.entryImageUrl()))
+            .licensePlateImageUrl(normalizeOptional(request.licensePlateImageUrl()))
             .build();
 
     ParkingSession saved = parkingSessionRepository.save(session);
@@ -111,6 +123,29 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
     slotRepository.save(slot);
 
     return toResponse(saved, card, slot);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public ParkingSessionPhotoPresignResponse createPhotoUpload(
+      ParkingSessionPhotoPresignRequest request) {
+    staffWorkContextService.requireCurrentContext();
+    requireEntryPhotoFile(request.fileName(), request.contentType());
+
+    String photoFolder = normalizePhotoFolder(request.photoType());
+    PresignedUpload upload =
+        storageService.createPresignedUpload(
+            currentTenantId(),
+            "parking-sessions/entry-verification/" + photoFolder,
+            request.fileName(),
+            request.contentType());
+    return ParkingSessionPhotoPresignResponse.builder()
+        .uploadUrl(upload.uploadUrl())
+        .objectKey(upload.objectKey())
+        .method(upload.method())
+        .headers(upload.headers())
+        .expiresInSeconds(upload.expiresInSeconds())
+        .build();
   }
 
   @Override
@@ -253,6 +288,8 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
         .vehicleTypeId(session.getVehicleType().getId())
         .vehicleTypeCode(session.getVehicleType().getCode())
         .vehicleTypeName(session.getVehicleType().getName())
+        .entryImageUrl(resolveImageDisplayUrl(session.getEntryImageUrl()))
+        .licensePlateImageUrl(resolveImageDisplayUrl(session.getLicensePlateImageUrl()))
         .parkingId(slot.getParking().getId())
         .entryTime(session.getCheckInAt())
         .status(session.getStatus())
@@ -337,6 +374,8 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
                     : session.getSlot().getFloor().getName())
             .zoneName(session.getZone().getName())
             .slotCode(session.getSlot().getCode())
+            .entryImageUrl(resolveImageDisplayUrl(session.getEntryImageUrl()))
+            .licensePlateImageUrl(resolveImageDisplayUrl(session.getLicensePlateImageUrl()))
             .checkInAt(session.getCheckInAt())
             .paidAt(session.getPaidAt())
             .exitDeadline(session.getExitDeadline())
@@ -453,6 +492,65 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
 
   private String normalizeOptional(String value) {
     return value == null || value.isBlank() ? null : value.trim();
+  }
+
+  private void requireEntryPhotoFile(String fileName, String contentType) {
+    String normalizedContentType =
+        contentType == null ? null : contentType.trim().toLowerCase(Locale.ROOT);
+    if (normalizedContentType == null
+        || !ALLOWED_PHOTO_CONTENT_TYPES.contains(normalizedContentType)) {
+      throw new ApiException(
+          ErrorCode.INVALID_INPUT, "contentType must be image/jpeg, image/png, or image/webp");
+    }
+    String lowerFileName = normalizeOptional(fileName);
+    if (lowerFileName == null) {
+      throw new ApiException(ErrorCode.INVALID_INPUT, "File name must not be blank");
+    }
+    lowerFileName = lowerFileName.toLowerCase(Locale.ROOT);
+    boolean extensionMatches =
+        ("image/jpeg".equals(normalizedContentType)
+                && (lowerFileName.endsWith(".jpg") || lowerFileName.endsWith(".jpeg")))
+            || ("image/png".equals(normalizedContentType) && lowerFileName.endsWith(".png"))
+            || ("image/webp".equals(normalizedContentType) && lowerFileName.endsWith(".webp"));
+    if (!extensionMatches) {
+      throw new ApiException(ErrorCode.INVALID_INPUT, "File extension does not match contentType");
+    }
+  }
+
+  private String normalizePhotoFolder(String photoType) {
+    String normalized = normalizeOptional(photoType);
+    if (normalized == null) {
+      return "entry-overview";
+    }
+    normalized = normalized.toUpperCase(Locale.ROOT);
+    if ("LICENSE_PLATE".equals(normalized) || "PLATE".equals(normalized)) {
+      return "license-plate";
+    }
+    return "entry-overview";
+  }
+
+  private String resolveImageDisplayUrl(String imageRef) {
+    String normalized = normalizeOptional(imageRef);
+    if (normalized == null) {
+      return null;
+    }
+    if (isHttpUrl(normalized)) {
+      return normalized;
+    }
+    if (normalized.startsWith("tenants/" + currentTenantId() + "/")) {
+      try {
+        PresignedDownload download =
+            storageService.createPresignedDownload(currentTenantId(), normalized);
+        return download.downloadUrl();
+      } catch (ApiException e) {
+        return null;
+      }
+    }
+    return normalized;
+  }
+
+  private boolean isHttpUrl(String value) {
+    return value.startsWith("http://") || value.startsWith("https://");
   }
 
   private record SlotAssignment(Slot slot, VehicleType vehicleType) {}

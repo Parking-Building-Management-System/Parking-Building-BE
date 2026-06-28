@@ -78,6 +78,9 @@ public class ParkingSession extends TenantScopedEntity {
   @Column(name = "entry_image_url", length = 1000)
   private String entryImageUrl;
 
+  @Column(name = "license_plate_image_url", length = 1000)
+  private String licensePlateImageUrl;
+
   @Column(name = "exit_image_url", length = 1000)
   private String exitImageUrl;
 

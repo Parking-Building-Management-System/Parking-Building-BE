@@ -19,6 +19,8 @@ public record ParkingSessionCheckInResponse(
     UUID vehicleTypeId,
     String vehicleTypeCode,
     String vehicleTypeName,
+    String entryImageUrl,
+    String licensePlateImageUrl,
     UUID parkingId,
     LocalDateTime entryTime,
     ParkingSessionStatus status) {}
