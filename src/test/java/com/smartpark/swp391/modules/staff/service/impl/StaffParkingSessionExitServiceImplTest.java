@@ -106,7 +106,8 @@ class StaffParkingSessionExitServiceImplTest {
             .build();
     motorbikeSlot.setId(UUID.randomUUID());
     stubCheckInBase(data.card);
-    when(vehicleTypeRepository.findById(motorbike.getId())).thenReturn(Optional.of(motorbike));
+    when(vehicleTypeRepository.findByIdAndDeletedFalse(motorbike.getId()))
+        .thenReturn(Optional.of(motorbike));
     when(slotRepository.findFirstAvailableForCheckInByVehicleType(
             data.tenant.getId(),
             data.parking.getId(),
@@ -140,12 +141,15 @@ class StaffParkingSessionExitServiceImplTest {
     assertThat(savedSession.getSlot().getZone().getVehicleType().getId()).isEqualTo(motorbike.getId());
     assertThat(motorbikeSlot.getStatus()).isEqualTo(SlotStatus.OCCUPIED);
     assertThat(response.assignedSlotId()).isEqualTo(motorbikeSlot.getId());
+    assertThat(response.vehicleTypeId()).isEqualTo(motorbike.getId());
+    assertThat(response.vehicleTypeCode()).isEqualTo(motorbike.getCode());
+    assertThat(response.vehicleTypeName()).isEqualTo(motorbike.getName());
   }
 
   @Test
   void checkInWithVehicleTypeFailsWhenNoMatchingSlotAvailable() {
     stubCheckInBase(data.card);
-    when(vehicleTypeRepository.findById(data.vehicleType.getId()))
+    when(vehicleTypeRepository.findByIdAndDeletedFalse(data.vehicleType.getId()))
         .thenReturn(Optional.of(data.vehicleType));
     when(slotRepository.findFirstAvailableForCheckInByVehicleType(
             data.tenant.getId(),

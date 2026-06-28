@@ -16,6 +16,9 @@ public record ParkingSessionCheckInResponse(
     String assignedSlotCode,
     UUID zoneId,
     String zoneName,
+    UUID vehicleTypeId,
+    String vehicleTypeCode,
+    String vehicleTypeName,
     UUID parkingId,
     LocalDateTime entryTime,
     ParkingSessionStatus status) {}

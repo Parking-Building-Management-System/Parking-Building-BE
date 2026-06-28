@@ -63,6 +63,7 @@ public class StaffParkingSessionController {
                                     "plateNumber": "51A-12345",
                                     "cardCode": "VIN-RFID-001",
                                     "parkingId": "8fe2f5ec-2f7b-3760-9f46-c4fc5c1f5d5e",
+                                    "vehicleTypeId": "a6b4cdbd-74c8-45bc-9ac2-b533423a7892",
                                     "entryImageUrl": "https://example.com/entry/51A-12345.jpg"
                                   }
                                   """))))

@@ -216,7 +216,7 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
   private VehicleType getActiveVehicleType(UUID vehicleTypeId) {
     VehicleType vehicleType =
         vehicleTypeRepository
-            .findById(vehicleTypeId)
+            .findByIdAndDeletedFalse(vehicleTypeId)
             .orElseThrow(
                 () -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Vehicle type not found"));
     if (!vehicleType.isActive()) {
@@ -250,6 +250,9 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
         .assignedSlotCode(slot.getCode())
         .zoneId(zone.getId())
         .zoneName(zone.getName())
+        .vehicleTypeId(session.getVehicleType().getId())
+        .vehicleTypeCode(session.getVehicleType().getCode())
+        .vehicleTypeName(session.getVehicleType().getName())
         .parkingId(slot.getParking().getId())
         .entryTime(session.getCheckInAt())
         .status(session.getStatus())
