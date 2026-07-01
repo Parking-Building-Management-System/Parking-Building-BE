@@ -68,4 +68,24 @@ public interface ParkingSessionRepository extends JpaRepository<ParkingSession, 
           """)
   java.util.Optional<ParkingSession> findDetailByTenantIdAndId(
       @Param("tenantId") UUID tenantId, @Param("sessionId") UUID sessionId);
+
+  @Query(
+      """
+          SELECT ps
+          FROM ParkingSession ps
+          JOIN FETCH ps.parking p
+          JOIN FETCH ps.zone z
+          JOIN FETCH ps.slot s
+          LEFT JOIN FETCH s.floor f
+          LEFT JOIN FETCH ps.rfidCard c
+          JOIN FETCH ps.vehicleType vt
+          WHERE ps.tenant.id = :tenantId
+            AND p.id = :parkingId
+            AND ps.status = :status
+          ORDER BY ps.checkInAt DESC
+          """)
+  List<ParkingSession> findActiveDetailsByTenantIdAndParkingId(
+      @Param("tenantId") UUID tenantId,
+      @Param("parkingId") UUID parkingId,
+      @Param("status") ParkingSessionStatus status);
 }

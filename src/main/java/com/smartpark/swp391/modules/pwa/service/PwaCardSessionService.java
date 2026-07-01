@@ -2,9 +2,17 @@ package com.smartpark.swp391.modules.pwa.service;
 
 import com.smartpark.swp391.modules.pwa.dto.CardActiveSessionResponse;
 import com.smartpark.swp391.modules.pwa.dto.CardCheckoutQuoteResponse;
+import com.smartpark.swp391.modules.pwa.dto.report.OccupiedSlotReportRequest;
+import com.smartpark.swp391.modules.pwa.dto.report.OccupiedSlotReportResponse;
+import com.smartpark.swp391.modules.pwa.dto.report.PwaReportUploadRequest;
+import com.smartpark.swp391.modules.pwa.dto.report.PwaReportUploadResponse;
 
 public interface PwaCardSessionService {
   CardActiveSessionResponse getActiveSession(String qrToken);
 
   CardCheckoutQuoteResponse getCheckoutQuote(String qrToken);
+
+  PwaReportUploadResponse createReportUpload(String qrToken, PwaReportUploadRequest request);
+
+  OccupiedSlotReportResponse reportOccupiedSlot(String qrToken, OccupiedSlotReportRequest request);
 }

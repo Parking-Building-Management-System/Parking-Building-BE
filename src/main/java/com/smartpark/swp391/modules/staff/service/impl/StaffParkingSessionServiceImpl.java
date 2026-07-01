@@ -22,6 +22,10 @@ import com.smartpark.swp391.modules.parking.enumType.SlotStatus;
 import com.smartpark.swp391.modules.parking.repository.ParkingRepository;
 import com.smartpark.swp391.modules.parking.repository.RfidCardRepository;
 import com.smartpark.swp391.modules.parking.repository.SlotRepository;
+import com.smartpark.swp391.modules.penalty.entity.PenaltyCase;
+import com.smartpark.swp391.modules.penalty.enumType.PenaltyCaseStatus;
+import com.smartpark.swp391.modules.penalty.repository.PenaltyCaseRepository;
+import com.smartpark.swp391.modules.penalty.service.PenaltyCaseResponseMapper;
 import com.smartpark.swp391.modules.pricing.dto.PricingQuoteResponse;
 import com.smartpark.swp391.modules.pricing.entity.PricingRule;
 import com.smartpark.swp391.modules.pricing.repository.PricingRuleRepository;
@@ -43,6 +47,7 @@ import com.smartpark.swp391.modules.vehicle.entity.VehicleType;
 import com.smartpark.swp391.modules.vehicle.repository.VehicleTypeRepository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
@@ -71,6 +76,8 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
   PricingQuoteService pricingQuoteService;
   PricingRuleRepository pricingRuleRepository;
   StorageService storageService;
+  PenaltyCaseRepository penaltyCaseRepository;
+  PenaltyCaseResponseMapper penaltyCaseResponseMapper;
 
   @Override
   @Transactional
@@ -97,8 +104,7 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
       throw new ApiException(ErrorCode.DUPLICATE_RESOURCE, "RFID card is already in use");
     }
 
-    SlotAssignment slotAssignment =
-        assignSlot(tenantId, parking.getId(), request.vehicleTypeId());
+    SlotAssignment slotAssignment = assignSlot(tenantId, parking.getId(), request.vehicleTypeId());
     Slot slot = slotAssignment.slot();
     VehicleType vehicleType = slotAssignment.vehicleType();
     LocalDateTime now = LocalDateTime.now();
@@ -189,6 +195,7 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
     validatePaymentMode(request, preview.response());
 
     BigDecimal totalAmount = finalTotalAmount(session, request, preview.response());
+    markPenaltyCasesCollected(preview.penaltyCases(), now);
     session.setCheckOutAt(now);
     session.setStatus(ParkingSessionStatus.COMPLETED);
     session.setTotalAmount(totalAmount);
@@ -209,6 +216,8 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
         .paymentMode(request.paymentMode())
         .collectedAmount(request.collectedAmount())
         .totalAmount(totalAmount)
+        .penaltyAmountDue(preview.response().penaltyAmountDue())
+        .totalAmountDue(preview.response().totalAmountDue())
         .currency(preview.response().currency())
         .slotCode(slot.getCode())
         .slotStatus(slot.getStatus())
@@ -346,21 +355,34 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
     ExitDecision decision;
     BigDecimal amountDue = BigDecimal.ZERO;
     String message;
+    List<PenaltyCase> penaltyCases = unpaidPenaltyCases(session);
+    BigDecimal penaltyAmountDue = sumPenaltyAmount(penaltyCases);
 
     if (session.getPaymentStatus() == SessionPaymentStatus.PAID) {
       if (session.getExitDeadline() != null && !evaluatedAt.isAfter(session.getExitDeadline())) {
         decision = ExitDecision.ALLOW_EXIT;
-        message = "Paid online. Allow exit.";
+        message =
+            penaltyAmountDue.signum() > 0
+                ? "Paid online. Collect penalties before exit."
+                : "Paid online. Allow exit.";
       } else {
         decision = ExitDecision.GRACE_EXPIRED_SURCHARGE;
         surcharge = pricingRule.getNextBlockPrice();
-        message = "Grace period expired. Collect surcharge.";
+        message =
+            penaltyAmountDue.signum() > 0
+                ? "Grace period expired. Collect surcharge and penalties."
+                : "Grace period expired. Collect surcharge.";
       }
     } else {
       decision = ExitDecision.COLLECT_CASH;
       amountDue = quote.amount();
-      message = "Cash payment required.";
+      message =
+          penaltyAmountDue.signum() > 0
+              ? "Cash payment and penalties required."
+              : "Cash payment required.";
     }
+
+    BigDecimal totalAmountDue = amountDue.add(surcharge).add(penaltyAmountDue);
 
     ExitPreviewResponse response =
         ExitPreviewResponse.builder()
@@ -384,10 +406,16 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
             .amountDue(amountDue)
             .surchargeAmount(surcharge)
             .totalAmount(resolveCurrentPaidAmount(session, quote, surcharge, decision))
+            .parkingAmountDue(amountDue)
+            .surchargeAmountDue(surcharge)
+            .penaltyAmountDue(penaltyAmountDue)
+            .totalAmountDue(totalAmountDue)
+            .penaltyCases(penaltyCases.stream().map(penaltyCaseResponseMapper::toResponse).toList())
+            .hasUnpaidPenalties(!penaltyCases.isEmpty())
             .currency(quote.currency())
             .message(message)
             .build();
-    return new ExitPreview(response, quote);
+    return new ExitPreview(response, quote, penaltyCases);
   }
 
   private BigDecimal resolveCurrentPaidAmount(
@@ -411,25 +439,57 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
         if (preview.exitDecision() != ExitDecision.ALLOW_EXIT) {
           throw new ApiException(ErrorCode.INVALID_INPUT, "ONLINE_EXIT_NOT_ALLOWED");
         }
-        if (request.collectedAmount().compareTo(BigDecimal.ZERO) != 0) {
+        if (preview.penaltyAmountDue().signum() == 0
+            && request.collectedAmount().compareTo(BigDecimal.ZERO) != 0) {
           throw new ApiException(ErrorCode.INVALID_INPUT, "ONLINE_COLLECTED_AMOUNT_MUST_BE_ZERO");
         }
+        requireCollectedAtLeast(
+            request.collectedAmount(), preview.penaltyAmountDue(), "PENALTY_AMOUNT_TOO_LOW");
       }
       case CASH -> {
         if (preview.exitDecision() != ExitDecision.COLLECT_CASH) {
           throw new ApiException(ErrorCode.INVALID_INPUT, "CASH_EXIT_NOT_ALLOWED");
         }
         requireCollectedAtLeast(
-            request.collectedAmount(), preview.amountDue(), "CASH_AMOUNT_TOO_LOW");
+            request.collectedAmount(),
+            preview.amountDue().add(preview.penaltyAmountDue()),
+            "CASH_AMOUNT_TOO_LOW");
       }
       case SURCHARGE_CASH -> {
         if (preview.exitDecision() != ExitDecision.GRACE_EXPIRED_SURCHARGE) {
           throw new ApiException(ErrorCode.INVALID_INPUT, "SURCHARGE_EXIT_NOT_ALLOWED");
         }
         requireCollectedAtLeast(
-            request.collectedAmount(), preview.surchargeAmount(), "SURCHARGE_AMOUNT_TOO_LOW");
+            request.collectedAmount(),
+            preview.surchargeAmount().add(preview.penaltyAmountDue()),
+            "SURCHARGE_AMOUNT_TOO_LOW");
       }
     }
+  }
+
+  private List<PenaltyCase> unpaidPenaltyCases(ParkingSession session) {
+    return penaltyCaseRepository.findByTargetSessionAndStatuses(
+        session.getTenant().getId(), session.getId(), List.of(PenaltyCaseStatus.APPLIED));
+  }
+
+  private BigDecimal sumPenaltyAmount(List<PenaltyCase> penaltyCases) {
+    return penaltyCases.stream()
+        .map(PenaltyCase::getAmount)
+        .reduce(BigDecimal.ZERO, BigDecimal::add);
+  }
+
+  private void markPenaltyCasesCollected(
+      List<PenaltyCase> penaltyCases, LocalDateTime collectedAt) {
+    if (penaltyCases.isEmpty()) {
+      return;
+    }
+    penaltyCases.forEach(
+        penaltyCase -> {
+          penaltyCase.setStatus(PenaltyCaseStatus.COLLECTED);
+          penaltyCase.setCollectedAt(collectedAt);
+          penaltyCase.setResolvedAt(collectedAt);
+        });
+    penaltyCaseRepository.saveAll(penaltyCases);
   }
 
   private void requireCollectedAtLeast(
@@ -555,5 +615,6 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
 
   private record SlotAssignment(Slot slot, VehicleType vehicleType) {}
 
-  private record ExitPreview(ExitPreviewResponse response, PricingQuoteResponse quote) {}
+  private record ExitPreview(
+      ExitPreviewResponse response, PricingQuoteResponse quote, List<PenaltyCase> penaltyCases) {}
 }

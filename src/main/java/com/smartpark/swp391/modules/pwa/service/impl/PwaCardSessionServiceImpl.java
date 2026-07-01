@@ -3,6 +3,7 @@ package com.smartpark.swp391.modules.pwa.service.impl;
 import com.smartpark.swp391.common.exception.ApiException;
 import com.smartpark.swp391.common.exception.ErrorCode;
 import com.smartpark.swp391.infrastructure.storage.dto.PresignedDownload;
+import com.smartpark.swp391.infrastructure.storage.dto.PresignedUpload;
 import com.smartpark.swp391.infrastructure.storage.service.StorageService;
 import com.smartpark.swp391.modules.operation.entity.ParkingSession;
 import com.smartpark.swp391.modules.operation.enumType.ParkingSessionStatus;
@@ -14,13 +15,25 @@ import com.smartpark.swp391.modules.parking.entity.RfidCard;
 import com.smartpark.swp391.modules.parking.entity.Slot;
 import com.smartpark.swp391.modules.parking.entity.Zone;
 import com.smartpark.swp391.modules.parking.enumType.RfidCardStatus;
+import com.smartpark.swp391.modules.parking.enumType.SlotStatus;
 import com.smartpark.swp391.modules.parking.repository.RfidCardRepository;
+import com.smartpark.swp391.modules.parking.repository.SlotRepository;
 import com.smartpark.swp391.modules.payment.dto.ExistingPaymentIntentResponse;
 import com.smartpark.swp391.modules.payment.service.PwaPaymentService;
+import com.smartpark.swp391.modules.penalty.entity.PenaltyCase;
+import com.smartpark.swp391.modules.penalty.entity.PenaltyRule;
+import com.smartpark.swp391.modules.penalty.enumType.PenaltyCaseStatus;
+import com.smartpark.swp391.modules.penalty.enumType.PenaltyType;
+import com.smartpark.swp391.modules.penalty.repository.PenaltyCaseRepository;
+import com.smartpark.swp391.modules.penalty.service.PenaltyRuleLookupService;
 import com.smartpark.swp391.modules.pricing.dto.PricingQuoteResponse;
 import com.smartpark.swp391.modules.pricing.service.PricingQuoteService;
 import com.smartpark.swp391.modules.pwa.dto.CardActiveSessionResponse;
 import com.smartpark.swp391.modules.pwa.dto.CardCheckoutQuoteResponse;
+import com.smartpark.swp391.modules.pwa.dto.report.OccupiedSlotReportRequest;
+import com.smartpark.swp391.modules.pwa.dto.report.OccupiedSlotReportResponse;
+import com.smartpark.swp391.modules.pwa.dto.report.PwaReportUploadRequest;
+import com.smartpark.swp391.modules.pwa.dto.report.PwaReportUploadResponse;
 import com.smartpark.swp391.modules.pwa.service.PwaCardSessionService;
 import com.smartpark.swp391.modules.vehicle.entity.VehicleType;
 import java.time.LocalDateTime;
@@ -39,9 +52,12 @@ public class PwaCardSessionServiceImpl implements PwaCardSessionService {
 
   RfidCardRepository rfidCardRepository;
   ParkingSessionRepository parkingSessionRepository;
+  SlotRepository slotRepository;
   StorageService storageService;
   PricingQuoteService pricingQuoteService;
   PwaPaymentService pwaPaymentService;
+  PenaltyRuleLookupService penaltyRuleLookupService;
+  PenaltyCaseRepository penaltyCaseRepository;
 
   @Override
   @Transactional(readOnly = true)
@@ -82,6 +98,99 @@ public class PwaCardSessionServiceImpl implements PwaCardSessionService {
     return toCheckoutQuoteResponse(session, quote);
   }
 
+  @Override
+  @Transactional(readOnly = true)
+  public PwaReportUploadResponse createReportUpload(
+      String qrToken, PwaReportUploadRequest request) {
+    RfidCard card = getActiveCard(qrToken);
+    ParkingSession session = getActiveSessionForCard(card);
+    PresignedUpload upload =
+        storageService.createPresignedUpload(
+            session.getTenant().getId(),
+            "parking-sessions/occupied-slot-reports",
+            request.fileName(),
+            request.contentType());
+    return PwaReportUploadResponse.builder()
+        .objectKey(upload.objectKey())
+        .uploadUrl(upload.uploadUrl())
+        .method(upload.method())
+        .headers(upload.headers())
+        .expiresInSeconds(upload.expiresInSeconds())
+        .publicUrl(upload.publicUrl())
+        .build();
+  }
+
+  @Override
+  @Transactional
+  public OccupiedSlotReportResponse reportOccupiedSlot(
+      String qrToken, OccupiedSlotReportRequest request) {
+    RfidCard card = getActiveCard(qrToken);
+    ParkingSession victim = getActiveSessionForCard(card);
+    if (victim.getStatus() != ParkingSessionStatus.ACTIVE) {
+      throw new ApiException(ErrorCode.INVALID_INPUT, "VICTIM_SESSION_NOT_ACTIVE");
+    }
+
+    String offenderPlate = normalizePlateForStorage(request.offenderPlateNumber());
+    if (normalizePlateForCompare(offenderPlate)
+        .equals(normalizePlateForCompare(victim.getLicensePlate()))) {
+      throw new ApiException(ErrorCode.INVALID_INPUT, "OFFENDER_PLATE_MATCHES_VICTIM");
+    }
+
+    Slot oldSlot = victim.getSlot();
+    Parking parking = victim.getParking();
+    PenaltyRule rule =
+        penaltyRuleLookupService.requireActiveRule(
+            victim.getTenant().getId(), parking.getId(), PenaltyType.OCCUPIED_ASSIGNED_SLOT);
+
+    ParkingSession offender = findOffenderSession(victim, offenderPlate);
+    Slot newSlot = findReplacementSlot(victim, oldSlot);
+
+    victim.setSlot(newSlot);
+    victim.setZone(newSlot.getZone());
+    newSlot.setStatus(SlotStatus.OCCUPIED);
+    oldSlot.setStatus(SlotStatus.OCCUPIED);
+
+    PenaltyCase penaltyCase =
+        PenaltyCase.builder()
+            .tenant(victim.getTenant())
+            .parking(parking)
+            .rule(rule)
+            .type(PenaltyType.OCCUPIED_ASSIGNED_SLOT)
+            .amount(rule.getAmount())
+            .currency(rule.getCurrency())
+            .status(offender == null ? PenaltyCaseStatus.REPORTED : PenaltyCaseStatus.APPLIED)
+            .targetSession(offender)
+            .victimSession(victim)
+            .offenderSession(offender)
+            .reportedSlot(oldSlot)
+            .reassignedSlot(newSlot)
+            .targetLicensePlate(offender == null ? null : offender.getLicensePlate())
+            .offenderLicensePlate(offenderPlate)
+            .evidenceImageUrl(normalizeOptional(request.evidenceImageUrl()))
+            .reportedFromPwa(true)
+            .note(normalizeOptional(request.note()))
+            .build();
+
+    penaltyCase = penaltyCaseRepository.save(penaltyCase);
+    slotRepository.save(oldSlot);
+    slotRepository.save(newSlot);
+    parkingSessionRepository.save(victim);
+
+    boolean offenderMatched = offender != null;
+    return OccupiedSlotReportResponse.builder()
+        .message(
+            offenderMatched
+                ? "Thank you for your report. We recorded the violation and assigned you a new slot."
+                : "Thank you for your report. We recorded the report and assigned you a new slot.")
+        .oldSlotId(oldSlot.getId())
+        .oldSlotCode(oldSlot.getCode())
+        .newSlotId(newSlot.getId())
+        .newSlotCode(newSlot.getCode())
+        .offenderMatched(offenderMatched)
+        .penaltyCaseId(penaltyCase.getId())
+        .build();
+  }
+
   private RfidCard getActiveCard(String qrToken) {
     RfidCard card =
         rfidCardRepository
@@ -101,6 +210,35 @@ public class PwaCardSessionServiceImpl implements PwaCardSessionService {
         .findFirst()
         .orElseThrow(
             () -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "NO_ACTIVE_SESSION_FOR_CARD"));
+  }
+
+  private ParkingSession findOffenderSession(ParkingSession victim, String offenderPlate) {
+    String normalizedOffender = normalizePlateForCompare(offenderPlate);
+    return parkingSessionRepository
+        .findActiveDetailsByTenantIdAndParkingId(
+            victim.getTenant().getId(), victim.getParking().getId(), ParkingSessionStatus.ACTIVE)
+        .stream()
+        .filter(candidate -> !candidate.getId().equals(victim.getId()))
+        .filter(
+            candidate ->
+                normalizePlateForCompare(candidate.getLicensePlate()).equals(normalizedOffender))
+        .findFirst()
+        .orElse(null);
+  }
+
+  private Slot findReplacementSlot(ParkingSession victim, Slot oldSlot) {
+    return slotRepository
+        .findFirstAvailableForReassignmentByVehicleType(
+            victim.getTenant().getId(),
+            victim.getParking().getId(),
+            victim.getVehicleType().getId(),
+            oldSlot.getId(),
+            SlotStatus.AVAILABLE,
+            PageRequest.of(0, 1))
+        .stream()
+        .findFirst()
+        .orElseThrow(
+            () -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "NO_AVAILABLE_REPLACEMENT_SLOT"));
   }
 
   private CardActiveSessionResponse toResponse(ParkingSession session) {
@@ -248,6 +386,24 @@ public class PwaCardSessionServiceImpl implements PwaCardSessionService {
       throw new ApiException(ErrorCode.INVALID_INPUT, "qrToken must not be blank");
     }
     return qrToken.trim();
+  }
+
+  private String normalizePlateForStorage(String plateNumber) {
+    if (plateNumber == null || plateNumber.isBlank()) {
+      throw new ApiException(ErrorCode.INVALID_INPUT, "offenderPlateNumber must not be blank");
+    }
+    return plateNumber.trim().toUpperCase(Locale.ROOT);
+  }
+
+  private String normalizePlateForCompare(String plateNumber) {
+    if (plateNumber == null) {
+      return "";
+    }
+    return plateNumber.replaceAll("[^A-Za-z0-9]", "").toUpperCase(Locale.ROOT);
+  }
+
+  private String normalizeOptional(String value) {
+    return value == null || value.isBlank() ? null : value.trim();
   }
 
   private record MapDisplay(String url, Long expiresInSeconds) {}

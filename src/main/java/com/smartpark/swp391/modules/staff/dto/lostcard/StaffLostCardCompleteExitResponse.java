@@ -1,4 +1,4 @@
-package com.smartpark.swp391.modules.staff.dto.exit;
+package com.smartpark.swp391.modules.staff.dto.lostcard;
 
 import com.smartpark.swp391.modules.operation.enumType.ParkingSessionStatus;
 import com.smartpark.swp391.modules.parking.enumType.RfidCardStatus;
@@ -9,20 +9,19 @@ import java.util.UUID;
 import lombok.Builder;
 
 @Builder
-public record CompleteExitResponse(
+public record StaffLostCardCompleteExitResponse(
     UUID sessionId,
     ParkingSessionStatus status,
     String plateNumber,
-    String cardCode,
-    LocalDateTime checkInAt,
     LocalDateTime checkOutAt,
-    ExitPaymentMode paymentMode,
-    BigDecimal collectedAmount,
-    BigDecimal totalAmount,
+    BigDecimal parkingAmountDue,
+    BigDecimal surchargeAmountDue,
     BigDecimal penaltyAmountDue,
     BigDecimal totalAmountDue,
+    BigDecimal collectedAmount,
     String currency,
     String slotCode,
     SlotStatus slotStatus,
+    String cardCode,
     RfidCardStatus cardStatus,
     String message) {}

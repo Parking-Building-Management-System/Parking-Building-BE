@@ -1,8 +1,10 @@
 package com.smartpark.swp391.modules.staff.dto.exit;
 
 import com.smartpark.swp391.modules.operation.enumType.SessionPaymentStatus;
+import com.smartpark.swp391.modules.penalty.dto.PenaltyCaseResponse;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 import lombok.Builder;
 
@@ -25,5 +27,11 @@ public record ExitPreviewResponse(
     BigDecimal amountDue,
     BigDecimal surchargeAmount,
     BigDecimal totalAmount,
+    BigDecimal parkingAmountDue,
+    BigDecimal surchargeAmountDue,
+    BigDecimal penaltyAmountDue,
+    BigDecimal totalAmountDue,
+    List<PenaltyCaseResponse> penaltyCases,
+    boolean hasUnpaidPenalties,
     String currency,
     String message) {}
