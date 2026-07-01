@@ -2,6 +2,9 @@ package com.smartpark.swp391.modules.payment.repository;
 
 import com.smartpark.swp391.modules.payment.entity.PaymentIntent;
 import com.smartpark.swp391.modules.payment.enumType.PaymentIntentStatus;
+import com.smartpark.swp391.modules.payment.enumType.PaymentProvider;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -37,4 +40,25 @@ public interface PaymentIntentRepository extends JpaRepository<PaymentIntent, UU
           """)
   List<PaymentIntent> findBySessionAndStatus(
       @Param("sessionId") UUID sessionId, @Param("status") PaymentIntentStatus status);
+
+  @Query(
+      """
+          SELECT COALESCE(SUM(pi.amount), 0)
+          FROM PaymentIntent pi
+          JOIN pi.parkingSession ps
+          WHERE pi.tenant.id = :tenantId
+            AND ps.parking.id = :parkingId
+            AND pi.status = :status
+            AND pi.provider = :provider
+            AND pi.deleted = false
+            AND pi.paidAt >= :from
+            AND pi.paidAt <= :to
+          """)
+  BigDecimal sumAmountByParkingAndPaidAtRange(
+      @Param("tenantId") UUID tenantId,
+      @Param("parkingId") UUID parkingId,
+      @Param("status") PaymentIntentStatus status,
+      @Param("provider") PaymentProvider provider,
+      @Param("from") LocalDateTime from,
+      @Param("to") LocalDateTime to);
 }

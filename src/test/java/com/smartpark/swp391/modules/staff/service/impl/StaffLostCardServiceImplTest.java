@@ -35,6 +35,10 @@ import com.smartpark.swp391.modules.pricing.dto.PricingQuoteResponse;
 import com.smartpark.swp391.modules.pricing.entity.PricingRule;
 import com.smartpark.swp391.modules.pricing.repository.PricingRuleRepository;
 import com.smartpark.swp391.modules.pricing.service.PricingQuoteService;
+import com.smartpark.swp391.modules.settlement.enumType.StaffCashTransactionType;
+import com.smartpark.swp391.modules.settlement.service.StaffCashLedgerEntry;
+import com.smartpark.swp391.modules.settlement.service.StaffCashLedgerService;
+import com.smartpark.swp391.modules.staff.dto.StaffResolvedContext;
 import com.smartpark.swp391.modules.staff.dto.StaffWorkContextResponse;
 import com.smartpark.swp391.modules.staff.dto.lostcard.StaffLostCardCaseRequest;
 import com.smartpark.swp391.modules.staff.dto.lostcard.StaffLostCardCompleteExitRequest;
@@ -66,6 +70,7 @@ class StaffLostCardServiceImplTest {
   @Mock SlotRepository slotRepository;
   @Mock RfidCardRepository rfidCardRepository;
   @Mock StorageService storageService;
+  @Mock StaffCashLedgerService staffCashLedgerService;
 
   TestData data;
 
@@ -164,12 +169,11 @@ class StaffLostCardServiceImplTest {
   @Test
   void completeExitCollectsLostCardPenaltyCompletesSessionAndMarksCardLost() {
     PenaltyCase lostCardCase = lostCardCase(data);
-    stubExitContext();
+    stubResolvedExitContext();
     when(parkingSessionRepository.findDetailByTenantIdAndId(
             data.tenant.getId(), data.session.getId()))
         .thenReturn(Optional.of(data.session));
-    when(penaltyCaseRepository.findDetailByTenantIdAndId(
-            data.tenant.getId(), lostCardCase.getId()))
+    when(penaltyCaseRepository.findDetailByTenantIdAndId(data.tenant.getId(), lostCardCase.getId()))
         .thenReturn(Optional.of(lostCardCase));
     stubQuote(List.of(lostCardCase));
 
@@ -191,12 +195,33 @@ class StaffLostCardServiceImplTest {
     verify(slotRepository).save(data.slot);
     verify(rfidCardRepository).save(data.card);
     verify(parkingSessionRepository).save(data.session);
+
+    ArgumentCaptor<List<StaffCashLedgerEntry>> entriesCaptor = ledgerEntriesCaptor();
+    verify(staffCashLedgerService).recordCashTransactions(any(), entriesCaptor.capture());
+    assertThat(entriesCaptor.getValue())
+        .extracting(StaffCashLedgerEntry::type)
+        .containsExactly(
+            StaffCashTransactionType.PARKING_CASH, StaffCashTransactionType.LOST_CARD_FINE);
   }
 
   private void stubExitContext() {
     when(staffWorkContextService.requireCurrentContext())
         .thenReturn(
             StaffWorkContextResponse.builder()
+                .kioskId(UUID.randomUUID())
+                .kioskName("Exit")
+                .kioskType(KioskType.EXIT)
+                .parkingId(data.parking.getId())
+                .parkingName(data.parking.getName())
+                .build());
+  }
+
+  private void stubResolvedExitContext() {
+    when(staffWorkContextService.requireCurrentResolvedContext())
+        .thenReturn(
+            StaffResolvedContext.builder()
+                .tenantId(data.tenant.getId())
+                .staffId(UUID.randomUUID())
                 .kioskId(UUID.randomUUID())
                 .kioskName("Exit")
                 .kioskType(KioskType.EXIT)
@@ -242,7 +267,13 @@ class StaffLostCardServiceImplTest {
         penaltyCaseResponseMapper,
         slotRepository,
         rfidCardRepository,
-        storageService);
+        storageService,
+        staffCashLedgerService);
+  }
+
+  @SuppressWarnings("unchecked")
+  private ArgumentCaptor<List<StaffCashLedgerEntry>> ledgerEntriesCaptor() {
+    return ArgumentCaptor.forClass(List.class);
   }
 
   private PenaltyCase savePenaltyCase(org.mockito.invocation.InvocationOnMock invocation) {

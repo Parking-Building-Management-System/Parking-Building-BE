@@ -3,6 +3,7 @@ package com.smartpark.swp391.modules.staff.service.impl;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -38,7 +39,11 @@ import com.smartpark.swp391.modules.pricing.dto.PricingQuoteResponse;
 import com.smartpark.swp391.modules.pricing.entity.PricingRule;
 import com.smartpark.swp391.modules.pricing.repository.PricingRuleRepository;
 import com.smartpark.swp391.modules.pricing.service.PricingQuoteService;
+import com.smartpark.swp391.modules.settlement.enumType.StaffCashTransactionType;
+import com.smartpark.swp391.modules.settlement.service.StaffCashLedgerEntry;
+import com.smartpark.swp391.modules.settlement.service.StaffCashLedgerService;
 import com.smartpark.swp391.modules.staff.dto.ParkingSessionCheckInRequest;
+import com.smartpark.swp391.modules.staff.dto.StaffResolvedContext;
 import com.smartpark.swp391.modules.staff.dto.StaffWorkContextResponse;
 import com.smartpark.swp391.modules.staff.dto.exit.CompleteExitRequest;
 import com.smartpark.swp391.modules.staff.dto.exit.ExitDecision;
@@ -76,6 +81,7 @@ class StaffParkingSessionExitServiceImplTest {
   @Mock StorageService storageService;
   @Mock PenaltyCaseRepository penaltyCaseRepository;
   @Mock PenaltyCaseResponseMapper penaltyCaseResponseMapper;
+  @Mock StaffCashLedgerService staffCashLedgerService;
 
   TestData data;
 
@@ -414,6 +420,7 @@ class StaffParkingSessionExitServiceImplTest {
     assertThat(response.cardStatus()).isEqualTo(RfidCardStatus.ACTIVE);
     assertThat(data.session.getCheckOutAt()).isNotNull();
     assertThat(data.session.getTotalAmount()).isEqualByComparingTo("30000");
+    verify(staffCashLedgerService, never()).recordCashTransactions(any(), anyList());
   }
 
   @Test
@@ -434,6 +441,13 @@ class StaffParkingSessionExitServiceImplTest {
     assertThat(data.session.getPaymentStatus()).isEqualTo(SessionPaymentStatus.CASH_COLLECTED);
     assertThat(data.session.getTotalAmount()).isEqualByComparingTo("30000");
     assertThat(data.slot.getStatus()).isEqualTo(SlotStatus.AVAILABLE);
+
+    ArgumentCaptor<List<StaffCashLedgerEntry>> entriesCaptor = ledgerEntriesCaptor();
+    verify(staffCashLedgerService).recordCashTransactions(any(), entriesCaptor.capture());
+    assertThat(entriesCaptor.getValue()).hasSize(1);
+    assertThat(entriesCaptor.getValue().getFirst().type())
+        .isEqualTo(StaffCashTransactionType.PARKING_CASH);
+    assertThat(entriesCaptor.getValue().getFirst().amount()).isEqualByComparingTo("30000");
   }
 
   @Test
@@ -466,6 +480,48 @@ class StaffParkingSessionExitServiceImplTest {
     assertThat(penaltyCase.getStatus()).isEqualTo(PenaltyCaseStatus.COLLECTED);
     assertThat(penaltyCase.getCollectedAt()).isNotNull();
     verify(penaltyCaseRepository).saveAll(List.of(penaltyCase));
+
+    ArgumentCaptor<List<StaffCashLedgerEntry>> entriesCaptor = ledgerEntriesCaptor();
+    verify(staffCashLedgerService).recordCashTransactions(any(), entriesCaptor.capture());
+    assertThat(entriesCaptor.getValue())
+        .extracting(StaffCashLedgerEntry::type)
+        .containsExactly(
+            StaffCashTransactionType.PARKING_CASH, StaffCashTransactionType.PENALTY_CASH);
+  }
+
+  @Test
+  void completeOnlinePaidWithPenaltyWritesPenaltyCashOnly() {
+    PenaltyCase penaltyCase = appliedPenalty(data);
+    data.session.setPaymentStatus(SessionPaymentStatus.PAID);
+    data.session.setPaidAt(LocalDateTime.now().minusMinutes(3));
+    data.session.setExitDeadline(LocalDateTime.now().plusMinutes(10));
+    data.session.setTotalAmount(new BigDecimal("30000"));
+    stubComplete(data, List.of(penaltyCase));
+    when(penaltyCaseResponseMapper.toResponse(penaltyCase))
+        .thenReturn(
+            PenaltyCaseResponse.builder()
+                .id(penaltyCase.getId())
+                .type(PenaltyType.OCCUPIED_ASSIGNED_SLOT)
+                .amount(new BigDecimal("50000"))
+                .currency("VND")
+                .status(PenaltyCaseStatus.APPLIED)
+                .build());
+
+    service()
+        .completeExit(
+            new CompleteExitRequest(
+                data.session.getId(),
+                data.card.getCode(),
+                ExitPaymentMode.ONLINE,
+                new BigDecimal("50000"),
+                null));
+
+    ArgumentCaptor<List<StaffCashLedgerEntry>> entriesCaptor = ledgerEntriesCaptor();
+    verify(staffCashLedgerService).recordCashTransactions(any(), entriesCaptor.capture());
+    assertThat(entriesCaptor.getValue()).hasSize(1);
+    assertThat(entriesCaptor.getValue().getFirst().type())
+        .isEqualTo(StaffCashTransactionType.PENALTY_CASH);
+    assertThat(entriesCaptor.getValue().getFirst().amount()).isEqualByComparingTo("50000");
   }
 
   @Test
@@ -489,6 +545,12 @@ class StaffParkingSessionExitServiceImplTest {
     assertThat(response.status()).isEqualTo(ParkingSessionStatus.COMPLETED);
     assertThat(data.session.getPaymentStatus()).isEqualTo(SessionPaymentStatus.SURCHARGE_COLLECTED);
     assertThat(data.session.getTotalAmount()).isEqualByComparingTo("40000");
+
+    ArgumentCaptor<List<StaffCashLedgerEntry>> entriesCaptor = ledgerEntriesCaptor();
+    verify(staffCashLedgerService).recordCashTransactions(any(), entriesCaptor.capture());
+    assertThat(entriesCaptor.getValue()).hasSize(1);
+    assertThat(entriesCaptor.getValue().getFirst().type())
+        .isEqualTo(StaffCashTransactionType.SURCHARGE_CASH);
   }
 
   @Test
@@ -513,8 +575,8 @@ class StaffParkingSessionExitServiceImplTest {
   @Test
   void alreadyCompletedRejected() {
     data.session.setStatus(ParkingSessionStatus.COMPLETED);
-    when(staffWorkContextService.requireCurrentContext())
-        .thenReturn(workContext(data.parking.getId()));
+    when(staffWorkContextService.requireCurrentResolvedContext())
+        .thenReturn(resolvedWorkContext(data.parking.getId()));
     when(parkingSessionRepository.findDetailByTenantIdAndId(
             data.tenant.getId(), data.session.getId()))
         .thenReturn(Optional.of(data.session));
@@ -574,8 +636,8 @@ class StaffParkingSessionExitServiceImplTest {
   }
 
   private void stubComplete(TestData data, List<PenaltyCase> penaltyCases) {
-    when(staffWorkContextService.requireCurrentContext())
-        .thenReturn(workContext(data.parking.getId()));
+    when(staffWorkContextService.requireCurrentResolvedContext())
+        .thenReturn(resolvedWorkContext(data.parking.getId()));
     when(parkingSessionRepository.findDetailByTenantIdAndId(
             data.tenant.getId(), data.session.getId()))
         .thenReturn(Optional.of(data.session));
@@ -627,7 +689,8 @@ class StaffParkingSessionExitServiceImplTest {
         pricingRuleRepository,
         storageService,
         penaltyCaseRepository,
-        penaltyCaseResponseMapper);
+        penaltyCaseResponseMapper,
+        staffCashLedgerService);
   }
 
   private StaffWorkContextResponse workContext(UUID parkingId) {
@@ -638,6 +701,23 @@ class StaffParkingSessionExitServiceImplTest {
         .parkingId(parkingId)
         .parkingName("Parking")
         .build();
+  }
+
+  private StaffResolvedContext resolvedWorkContext(UUID parkingId) {
+    return StaffResolvedContext.builder()
+        .tenantId(data.tenant.getId())
+        .staffId(UUID.randomUUID())
+        .kioskId(UUID.randomUUID())
+        .kioskName("Exit")
+        .kioskType(KioskType.EXIT)
+        .parkingId(parkingId)
+        .parkingName("Parking")
+        .build();
+  }
+
+  @SuppressWarnings("unchecked")
+  private ArgumentCaptor<List<StaffCashLedgerEntry>> ledgerEntriesCaptor() {
+    return ArgumentCaptor.forClass(List.class);
   }
 
   private PricingQuoteResponse quote(UUID ruleId) {

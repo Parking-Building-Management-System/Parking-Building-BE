@@ -30,10 +30,15 @@ import com.smartpark.swp391.modules.pricing.dto.PricingQuoteResponse;
 import com.smartpark.swp391.modules.pricing.entity.PricingRule;
 import com.smartpark.swp391.modules.pricing.repository.PricingRuleRepository;
 import com.smartpark.swp391.modules.pricing.service.PricingQuoteService;
+import com.smartpark.swp391.modules.settlement.enumType.StaffCashTransactionSource;
+import com.smartpark.swp391.modules.settlement.enumType.StaffCashTransactionType;
+import com.smartpark.swp391.modules.settlement.service.StaffCashLedgerEntry;
+import com.smartpark.swp391.modules.settlement.service.StaffCashLedgerService;
 import com.smartpark.swp391.modules.staff.dto.ParkingSessionCheckInRequest;
 import com.smartpark.swp391.modules.staff.dto.ParkingSessionCheckInResponse;
 import com.smartpark.swp391.modules.staff.dto.ParkingSessionPhotoPresignRequest;
 import com.smartpark.swp391.modules.staff.dto.ParkingSessionPhotoPresignResponse;
+import com.smartpark.swp391.modules.staff.dto.StaffResolvedContext;
 import com.smartpark.swp391.modules.staff.dto.StaffWorkContextResponse;
 import com.smartpark.swp391.modules.staff.dto.exit.CompleteExitRequest;
 import com.smartpark.swp391.modules.staff.dto.exit.CompleteExitResponse;
@@ -47,6 +52,7 @@ import com.smartpark.swp391.modules.vehicle.entity.VehicleType;
 import com.smartpark.swp391.modules.vehicle.repository.VehicleTypeRepository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -78,6 +84,7 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
   StorageService storageService;
   PenaltyCaseRepository penaltyCaseRepository;
   PenaltyCaseResponseMapper penaltyCaseResponseMapper;
+  StaffCashLedgerService staffCashLedgerService;
 
   @Override
   @Transactional
@@ -170,7 +177,7 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
   @Transactional
   public CompleteExitResponse completeExit(CompleteExitRequest request) {
     UUID tenantId = currentTenantId();
-    StaffWorkContextResponse workContext = requireExitWorkContext();
+    StaffResolvedContext workContext = requireExitResolvedWorkContext();
     ParkingSession session =
         parkingSessionRepository
             .findDetailByTenantIdAndId(tenantId, request.sessionId())
@@ -195,6 +202,11 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
     validatePaymentMode(request, preview.response());
 
     BigDecimal totalAmount = finalTotalAmount(session, request, preview.response());
+    List<StaffCashLedgerEntry> ledgerEntries =
+        ledgerEntriesForCompleteExit(session, request, preview.response(), preview.penaltyCases());
+    if (!ledgerEntries.isEmpty()) {
+      staffCashLedgerService.recordCashTransactions(workContext, ledgerEntries);
+    }
     markPenaltyCasesCollected(preview.penaltyCases(), now);
     session.setCheckOutAt(now);
     session.setStatus(ParkingSessionStatus.COMPLETED);
@@ -307,6 +319,14 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
 
   private StaffWorkContextResponse requireExitWorkContext() {
     StaffWorkContextResponse workContext = staffWorkContextService.requireCurrentContext();
+    if (workContext.kioskType() != KioskType.EXIT && workContext.kioskType() != KioskType.MIXED) {
+      throw new ApiException(ErrorCode.FORBIDDEN_ACTION, "EXIT_KIOSK_REQUIRED");
+    }
+    return workContext;
+  }
+
+  private StaffResolvedContext requireExitResolvedWorkContext() {
+    StaffResolvedContext workContext = staffWorkContextService.requireCurrentResolvedContext();
     if (workContext.kioskType() != KioskType.EXIT && workContext.kioskType() != KioskType.MIXED) {
       throw new ApiException(ErrorCode.FORBIDDEN_ACTION, "EXIT_KIOSK_REQUIRED");
     }
@@ -490,6 +510,62 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
           penaltyCase.setResolvedAt(collectedAt);
         });
     penaltyCaseRepository.saveAll(penaltyCases);
+  }
+
+  private List<StaffCashLedgerEntry> ledgerEntriesForCompleteExit(
+      ParkingSession session,
+      CompleteExitRequest request,
+      ExitPreviewResponse preview,
+      List<PenaltyCase> penaltyCases) {
+    List<StaffCashLedgerEntry> entries = new ArrayList<>();
+    switch (request.paymentMode()) {
+      case CASH ->
+          addEntry(
+              entries,
+              StaffCashTransactionType.PARKING_CASH,
+              preview.amountDue(),
+              session,
+              null,
+              StaffCashTransactionSource.NORMAL_EXIT,
+              request.note());
+      case SURCHARGE_CASH ->
+          addEntry(
+              entries,
+              StaffCashTransactionType.SURCHARGE_CASH,
+              preview.surchargeAmount(),
+              session,
+              null,
+              StaffCashTransactionSource.NORMAL_EXIT,
+              request.note());
+      case ONLINE -> {
+        // PayOS parking amount is reported separately; only cash penalties are ledgered here.
+      }
+    }
+    penaltyCases.forEach(
+        penaltyCase ->
+            addEntry(
+                entries,
+                StaffCashTransactionType.PENALTY_CASH,
+                penaltyCase.getAmount(),
+                session,
+                penaltyCase,
+                StaffCashTransactionSource.NORMAL_EXIT,
+                request.note()));
+    return entries;
+  }
+
+  private void addEntry(
+      List<StaffCashLedgerEntry> entries,
+      StaffCashTransactionType type,
+      BigDecimal amount,
+      ParkingSession session,
+      PenaltyCase penaltyCase,
+      StaffCashTransactionSource source,
+      String note) {
+    if (amount == null || amount.signum() <= 0) {
+      return;
+    }
+    entries.add(new StaffCashLedgerEntry(type, amount, session, penaltyCase, source, note));
   }
 
   private void requireCollectedAtLeast(

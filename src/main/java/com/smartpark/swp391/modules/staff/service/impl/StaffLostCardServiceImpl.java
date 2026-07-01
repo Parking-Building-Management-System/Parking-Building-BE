@@ -28,6 +28,11 @@ import com.smartpark.swp391.modules.pricing.dto.PricingQuoteResponse;
 import com.smartpark.swp391.modules.pricing.entity.PricingRule;
 import com.smartpark.swp391.modules.pricing.repository.PricingRuleRepository;
 import com.smartpark.swp391.modules.pricing.service.PricingQuoteService;
+import com.smartpark.swp391.modules.settlement.enumType.StaffCashTransactionSource;
+import com.smartpark.swp391.modules.settlement.enumType.StaffCashTransactionType;
+import com.smartpark.swp391.modules.settlement.service.StaffCashLedgerEntry;
+import com.smartpark.swp391.modules.settlement.service.StaffCashLedgerService;
+import com.smartpark.swp391.modules.staff.dto.StaffResolvedContext;
 import com.smartpark.swp391.modules.staff.dto.StaffWorkContextResponse;
 import com.smartpark.swp391.modules.staff.dto.lostcard.StaffLostCardCaseRequest;
 import com.smartpark.swp391.modules.staff.dto.lostcard.StaffLostCardCaseResponse;
@@ -40,6 +45,7 @@ import com.smartpark.swp391.modules.staff.service.StaffLostCardService;
 import com.smartpark.swp391.modules.staff.service.StaffWorkContextService;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -64,6 +70,7 @@ public class StaffLostCardServiceImpl implements StaffLostCardService {
   SlotRepository slotRepository;
   RfidCardRepository rfidCardRepository;
   StorageService storageService;
+  StaffCashLedgerService staffCashLedgerService;
 
   @Override
   @Transactional(readOnly = true)
@@ -167,7 +174,7 @@ public class StaffLostCardServiceImpl implements StaffLostCardService {
   @Override
   @Transactional
   public StaffLostCardCompleteExitResponse completeExit(StaffLostCardCompleteExitRequest request) {
-    StaffWorkContextResponse workContext = requireExitWorkContext();
+    StaffResolvedContext workContext = requireExitResolvedWorkContext();
     ParkingSession session = getActiveSession(request.sessionId(), workContext.parkingId());
     PenaltyCase lostCardCase =
         penaltyCaseRepository
@@ -184,6 +191,11 @@ public class StaffLostCardServiceImpl implements StaffLostCardService {
         dueAmounts.cashParkingDue().add(dueAmounts.surchargeDue()).add(penaltyAmountDue);
     requireCollectedAtLeast(request.collectedAmount(), totalAmountDue);
 
+    List<StaffCashLedgerEntry> ledgerEntries =
+        ledgerEntriesForLostCardExit(session, dueAmounts, penalties, request.note());
+    if (!ledgerEntries.isEmpty()) {
+      staffCashLedgerService.recordCashTransactions(workContext, ledgerEntries);
+    }
     markPenaltyCasesCollected(penalties, now);
     session.setCheckOutAt(now);
     session.setStatus(ParkingSessionStatus.COMPLETED);
@@ -222,6 +234,14 @@ public class StaffLostCardServiceImpl implements StaffLostCardService {
 
   private StaffWorkContextResponse requireExitWorkContext() {
     StaffWorkContextResponse workContext = staffWorkContextService.requireCurrentContext();
+    if (workContext.kioskType() != KioskType.EXIT && workContext.kioskType() != KioskType.MIXED) {
+      throw new ApiException(ErrorCode.FORBIDDEN_ACTION, "EXIT_KIOSK_REQUIRED");
+    }
+    return workContext;
+  }
+
+  private StaffResolvedContext requireExitResolvedWorkContext() {
+    StaffResolvedContext workContext = staffWorkContextService.requireCurrentResolvedContext();
     if (workContext.kioskType() != KioskType.EXIT && workContext.kioskType() != KioskType.MIXED) {
       throw new ApiException(ErrorCode.FORBIDDEN_ACTION, "EXIT_KIOSK_REQUIRED");
     }
@@ -325,6 +345,54 @@ public class StaffLostCardServiceImpl implements StaffLostCardService {
           penaltyCase.setResolvedAt(collectedAt);
         });
     penaltyCaseRepository.saveAll(penaltyCases);
+  }
+
+  private List<StaffCashLedgerEntry> ledgerEntriesForLostCardExit(
+      ParkingSession session, DueAmounts dueAmounts, List<PenaltyCase> penalties, String note) {
+    List<StaffCashLedgerEntry> entries = new ArrayList<>();
+    addEntry(
+        entries,
+        StaffCashTransactionType.PARKING_CASH,
+        dueAmounts.cashParkingDue(),
+        session,
+        null,
+        StaffCashTransactionSource.LOST_CARD_EXIT,
+        note);
+    addEntry(
+        entries,
+        StaffCashTransactionType.SURCHARGE_CASH,
+        dueAmounts.surchargeDue(),
+        session,
+        null,
+        StaffCashTransactionSource.LOST_CARD_EXIT,
+        note);
+    penalties.forEach(
+        penaltyCase ->
+            addEntry(
+                entries,
+                penaltyCase.getType() == PenaltyType.LOST_CARD
+                    ? StaffCashTransactionType.LOST_CARD_FINE
+                    : StaffCashTransactionType.PENALTY_CASH,
+                penaltyCase.getAmount(),
+                session,
+                penaltyCase,
+                StaffCashTransactionSource.LOST_CARD_EXIT,
+                note));
+    return entries;
+  }
+
+  private void addEntry(
+      List<StaffCashLedgerEntry> entries,
+      StaffCashTransactionType type,
+      BigDecimal amount,
+      ParkingSession session,
+      PenaltyCase penaltyCase,
+      StaffCashTransactionSource source,
+      String note) {
+    if (amount == null || amount.signum() <= 0) {
+      return;
+    }
+    entries.add(new StaffCashLedgerEntry(type, amount, session, penaltyCase, source, note));
   }
 
   private void applyParkingPaymentState(ParkingSession session, DueAmounts dueAmounts) {
