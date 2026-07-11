@@ -66,8 +66,9 @@ class ManagerStaffSpecificationsTest {
 
     Page<User> staff = findStaff(tenantId, "cashier", null);
 
-    assertThat(staff.getContent()).extracting(User::getUsername).containsExactly(
-        "cashier01@bcons-plaza.smartpark.local");
+    assertThat(staff.getContent())
+        .extracting(User::getUsername)
+        .containsExactly("cashier01@bcons-plaza.smartpark.local");
   }
 
   @Test
@@ -77,7 +78,8 @@ class ManagerStaffSpecificationsTest {
     Page<User> staff = findStaff(tenantId, null, UserStatus.ACTIVE);
 
     assertThat(staff.getContent()).isNotEmpty();
-    assertThat(staff.getContent()).allSatisfy(user -> assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE));
+    assertThat(staff.getContent())
+        .allSatisfy(user -> assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE));
   }
 
   @Test

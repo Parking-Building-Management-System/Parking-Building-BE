@@ -71,7 +71,8 @@ public class AdminPortalCacheService extends RedisJsonCacheSupport {
 
   public void saveRolePermissionTree(UUID roleId, List<PermissionScopeNode> response) {
     serialize(response)
-        .ifPresent(json -> redis.opsForValue().set(RedisKeys.adminRolePermissionTree(roleId), json));
+        .ifPresent(
+            json -> redis.opsForValue().set(RedisKeys.adminRolePermissionTree(roleId), json));
   }
 
   public void evictRolePermissionTree(UUID roleId) {

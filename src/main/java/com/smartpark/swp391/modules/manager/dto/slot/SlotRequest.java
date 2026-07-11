@@ -5,6 +5,4 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record SlotRequest(
-    @NotBlank @Size(max = 50) String code,
-    @Size(max = 50) String slotNumber,
-    SlotStatus status) {}
+    @NotBlank @Size(max = 50) String code, @Size(max = 50) String slotNumber, SlotStatus status) {}

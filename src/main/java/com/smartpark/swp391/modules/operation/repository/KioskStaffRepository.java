@@ -80,8 +80,7 @@ public interface KioskStaffRepository extends JpaRepository<KioskStaff, UUID> {
             AND ks.kiosk.id = :kioskId
             AND ks.active = true
           """)
-  long countActiveAssignments(
-      @Param("tenantId") UUID tenantId, @Param("kioskId") UUID kioskId);
+  long countActiveAssignments(@Param("tenantId") UUID tenantId, @Param("kioskId") UUID kioskId);
 
   @Modifying
   @Query(

@@ -25,9 +25,11 @@ public interface PermissionRepository extends JpaRepository<Permission, UUID> {
 
   Optional<Permission> findByIdAndDeletedFalse(UUID id);
 
-  boolean existsByDeletedFalseAndScopeIgnoreCaseAndModuleIgnoreCaseAndResourceIgnoreCaseAndLabelIgnoreCaseAndActionIgnoreCase(
-      String scope, String module, String resource, String label, String action);
+  boolean
+      existsByDeletedFalseAndScopeIgnoreCaseAndModuleIgnoreCaseAndResourceIgnoreCaseAndLabelIgnoreCaseAndActionIgnoreCase(
+          String scope, String module, String resource, String label, String action);
 
-  boolean existsByDeletedFalseAndScopeIgnoreCaseAndModuleIgnoreCaseAndResourceIgnoreCaseAndLabelIgnoreCaseAndActionIgnoreCaseAndIdNot(
-      String scope, String module, String resource, String label, String action, UUID id);
+  boolean
+      existsByDeletedFalseAndScopeIgnoreCaseAndModuleIgnoreCaseAndResourceIgnoreCaseAndLabelIgnoreCaseAndActionIgnoreCaseAndIdNot(
+          String scope, String module, String resource, String label, String action, UUID id);
 }

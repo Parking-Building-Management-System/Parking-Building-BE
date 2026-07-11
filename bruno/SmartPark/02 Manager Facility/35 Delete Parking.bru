@@ -1,0 +1,19 @@
+meta {
+  name: Permanently Delete Parking
+  type: http
+  seq: 35
+}
+
+delete {
+  url: {{baseUrl}}/manager/parkings/{{parkingId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerToken}}
+}
+
+docs {
+  This operation permanently removes the selected parking and every parking-owned record. Use only a disposable parking such as DELETE-DEMO-PARKING.
+}

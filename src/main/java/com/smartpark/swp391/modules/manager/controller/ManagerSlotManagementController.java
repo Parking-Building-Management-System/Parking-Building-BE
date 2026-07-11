@@ -76,7 +76,11 @@ public class ManagerSlotManagementController {
   }
 
   @DeleteMapping("/slots/{id}")
-  @Operation(summary = "Delete slot", description = "Soft-deletes one tenant slot by id.")
+  @Operation(
+      summary = "Delete slot",
+      description =
+          "Permanently deletes one tenant slot when it has no active or historical parking"
+              + " session references.")
   public ResponseEntity<ApiResponse<Void>> deleteSlot(
       @PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
     managerTenantContext.run(jwt, () -> managerSlotService.deleteSlot(id));

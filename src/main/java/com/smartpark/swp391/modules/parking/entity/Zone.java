@@ -18,7 +18,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.Filter;
-import org.hibernate.annotations.SQLRestriction;
 
 @Entity
 @Table(name = "zones")
@@ -28,7 +27,6 @@ import org.hibernate.annotations.SQLRestriction;
 @NoArgsConstructor
 @AllArgsConstructor
 @Filter(name = TenantScopedEntity.TENANT_FILTER, condition = "tenant_id = cast(:tenantId as uuid)")
-@SQLRestriction("is_deleted = false")
 public class Zone extends TenantScopedEntity {
 
   @ManyToOne(fetch = FetchType.LAZY)
@@ -60,8 +58,4 @@ public class Zone extends TenantScopedEntity {
   @Column(nullable = false, length = 20)
   @Builder.Default
   private ZoneStatus status = ZoneStatus.ACTIVE;
-
-  @Column(name = "is_deleted", nullable = false)
-  @Builder.Default
-  private boolean isDeleted = false;
 }

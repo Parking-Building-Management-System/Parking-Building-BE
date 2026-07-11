@@ -267,8 +267,7 @@ class StaffParkingSessionExitServiceImplTest {
     when(staffWorkContextService.requireCurrentContext())
         .thenReturn(workContext(data.parking.getId()));
     when(tenantRepository.getReferenceById(data.tenant.getId())).thenReturn(data.tenant);
-    when(parkingRepository.findByIdAndTenantIdAndIsDeletedFalse(
-            data.parking.getId(), data.tenant.getId()))
+    when(parkingRepository.findByIdAndTenantId(data.parking.getId(), data.tenant.getId()))
         .thenReturn(Optional.of(data.parking));
     when(rfidCardRepository.findByTenantIdAndCodeIgnoreCase(
             data.tenant.getId(), data.card.getCode()))
@@ -314,7 +313,7 @@ class StaffParkingSessionExitServiceImplTest {
                             null)))
         .isInstanceOf(ApiException.class)
         .hasMessage("CHECK_IN_PARKING_NOT_IN_KIOSK_CONTEXT");
-    verify(parkingRepository, never()).findByIdAndTenantIdAndIsDeletedFalse(any(), any());
+    verify(parkingRepository, never()).findByIdAndTenantId(any(), any());
   }
 
   @Test
@@ -386,6 +385,20 @@ class StaffParkingSessionExitServiceImplTest {
   }
 
   @Test
+  void exitPreviewShowsPendingViolationReviewWithoutChargingIt() {
+    stubPreview(data);
+    when(penaltyCaseRepository.countByTenantIdAndOffenderSessionIdAndStatus(
+            data.tenant.getId(), data.session.getId(), PenaltyCaseStatus.REPORTED))
+        .thenReturn(1L);
+
+    var response = service().previewExit(new ExitPreviewRequest(data.card.getCode()));
+
+    assertThat(response.hasPendingViolationReview()).isTrue();
+    assertThat(response.pendingViolationReportCount()).isEqualTo(1);
+    assertThat(response.penaltyAmountDue()).isEqualByComparingTo(BigDecimal.ZERO);
+  }
+
+  @Test
   void exitPreviewReturnsEntryVerificationImages() {
     data.session.setEntryImageUrl("https://cdn.example.com/entry.jpg");
     data.session.setLicensePlateImageUrl("https://cdn.example.com/plate.jpg");
@@ -448,6 +461,36 @@ class StaffParkingSessionExitServiceImplTest {
     assertThat(entriesCaptor.getValue().getFirst().type())
         .isEqualTo(StaffCashTransactionType.PARKING_CASH);
     assertThat(entriesCaptor.getValue().getFirst().amount()).isEqualByComparingTo("30000");
+  }
+
+  @Test
+  void completeExitBlocksAnOffenderUntilPendingReportIsReviewed() {
+    when(staffWorkContextService.requireCurrentResolvedContext())
+        .thenReturn(resolvedWorkContext(data.parking.getId()));
+    when(parkingSessionRepository.findDetailByTenantIdAndId(
+            data.tenant.getId(), data.session.getId()))
+        .thenReturn(Optional.of(data.session));
+    when(penaltyCaseRepository.countByTenantIdAndOffenderSessionIdAndStatus(
+            data.tenant.getId(), data.session.getId(), PenaltyCaseStatus.REPORTED))
+        .thenReturn(1L);
+
+    assertThatThrownBy(
+            () ->
+                service()
+                    .completeExit(
+                        new CompleteExitRequest(
+                            data.session.getId(),
+                            data.card.getCode(),
+                            ExitPaymentMode.CASH,
+                            new BigDecimal("30000"),
+                            null)))
+        .isInstanceOf(ApiException.class)
+        .hasMessage(
+            "PENDING_VIOLATION_REVIEW_REQUIRED: Review the occupied-slot report before"
+                + " completing exit.");
+
+    verify(slotRepository, never()).save(any(Slot.class));
+    verify(parkingSessionRepository, never()).save(data.session);
   }
 
   @Test
@@ -666,8 +709,7 @@ class StaffParkingSessionExitServiceImplTest {
     when(staffWorkContextService.requireCurrentContext())
         .thenReturn(workContext(data.parking.getId()));
     when(tenantRepository.getReferenceById(data.tenant.getId())).thenReturn(data.tenant);
-    when(parkingRepository.findByIdAndTenantIdAndIsDeletedFalse(
-            data.parking.getId(), data.tenant.getId()))
+    when(parkingRepository.findByIdAndTenantId(data.parking.getId(), data.tenant.getId()))
         .thenReturn(Optional.of(data.parking));
     when(rfidCardRepository.findByTenantIdAndCodeIgnoreCase(data.tenant.getId(), card.getCode()))
         .thenReturn(Optional.of(card));

@@ -57,7 +57,7 @@ class RfidCardRepositoryTest {
     Tenant tenant = tenantRepository.findBySlug("bcons-plaza").orElseThrow();
     Parking parking =
         parkingRepository
-            .findByTenantIdAndCodeIgnoreCaseAndIsDeletedFalse(tenant.getId(), "BCONS-PLAZA")
+            .findByTenantIdAndCodeIgnoreCase(tenant.getId(), "BCONS-PLAZA")
             .orElseThrow();
     RfidCard availableCard =
         rfidCardRepository
@@ -93,16 +93,12 @@ class RfidCardRepositoryTest {
     Tenant tenant = tenantRepository.findBySlug("vincom-mega-mall").orElseThrow();
     Parking parking =
         parkingRepository
-            .findByTenantIdAndCodeIgnoreCaseAndIsDeletedFalse(tenant.getId(), "VINCOM-DK")
+            .findByTenantIdAndCodeIgnoreCase(tenant.getId(), "VINCOM-DK")
             .orElseThrow();
 
     var cards =
         rfidCardRepository.findAvailableForStaffParking(
-            tenant.getId(),
-            parking.getId(),
-            RfidCardStatus.ACTIVE,
-            null,
-            PageRequest.of(0, 5));
+            tenant.getId(), parking.getId(), RfidCardStatus.ACTIVE, null, PageRequest.of(0, 5));
 
     assertThat(cards).isNotEmpty();
   }

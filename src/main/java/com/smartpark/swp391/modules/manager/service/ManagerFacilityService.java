@@ -21,6 +21,8 @@ public interface ManagerFacilityService {
 
   ParkingResponse updateParking(UUID id, ParkingRequest request);
 
+  void deleteParking(UUID id);
+
   ParkingStatusResponse updateParkingStatus(UUID id, ParkingStatusRequest request);
 
   ParkingTopologyResponse getTopology(UUID parkingId);

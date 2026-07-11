@@ -14,4 +14,5 @@ public record ZoneResponse(
     String vehicleTypeCode,
     String vehicleTypeName,
     int capacity,
+    int slotCount,
     ZoneStatus status) {}

@@ -69,7 +69,8 @@ public class AdminAuditSecurityController {
 
   @PostMapping("/admin/users/{userId}/force-logout")
   public ResponseEntity<ApiResponse<ForceLogoutResponse>> forceLogout(
-      @PathVariable UUID userId, @Valid @RequestBody(required = false) SecurityActionRequest request) {
+      @PathVariable UUID userId,
+      @Valid @RequestBody(required = false) SecurityActionRequest request) {
     return ok(
         "/admin/users/" + userId + "/force-logout",
         adminAuditSecurityService.forceLogout(userId, request));
@@ -90,13 +91,13 @@ public class AdminAuditSecurityController {
       @RequestParam(required = false) String status,
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "20") int size) {
-    return ok(
-        "/admin/devices", adminAuditSecurityService.getDevices(tenantId, status, page, size));
+    return ok("/admin/devices", adminAuditSecurityService.getDevices(tenantId, status, page, size));
   }
 
   @PostMapping("/admin/devices/{deviceId}/revoke")
   public ResponseEntity<ApiResponse<RevokeDeviceResponse>> revokeDevice(
-      @PathVariable UUID deviceId, @Valid @RequestBody(required = false) SecurityActionRequest request) {
+      @PathVariable UUID deviceId,
+      @Valid @RequestBody(required = false) SecurityActionRequest request) {
     return ok(
         "/admin/devices/" + deviceId + "/revoke",
         adminAuditSecurityService.revokeDevice(deviceId, request));

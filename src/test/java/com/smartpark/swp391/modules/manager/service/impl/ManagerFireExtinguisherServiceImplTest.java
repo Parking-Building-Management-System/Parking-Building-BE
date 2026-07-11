@@ -135,8 +135,7 @@ class ManagerFireExtinguisherServiceImplTest {
 
   @Test
   void createRejectsCrossTenantParking() {
-    when(parkingRepository.findByIdAndTenantIdAndIsDeletedFalse(
-            data.parking().getId(), data.tenant().getId()))
+    when(parkingRepository.findByIdAndTenantId(data.parking().getId(), data.tenant().getId()))
         .thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> service().createExtinguisher(request(data)))
@@ -197,8 +196,7 @@ class ManagerFireExtinguisherServiceImplTest {
 
   @Test
   void fireSafetyMapReturnsExtinguishersForFloor() {
-    when(floorRepository.findByIdAndTenantIdAndDeletedFalse(
-            data.floor().getId(), data.tenant().getId()))
+    when(floorRepository.findByIdAndTenantId(data.floor().getId(), data.tenant().getId()))
         .thenReturn(Optional.of(data.floor()));
     when(fireExtinguisherRepository.findMapItemsByTenantIdAndFloorId(
             data.tenant().getId(), data.floor().getId()))

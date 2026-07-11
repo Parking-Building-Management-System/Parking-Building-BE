@@ -78,9 +78,7 @@ public class AdminSystemHealthServiceImpl implements AdminSystemHealthService {
   public List<TrafficPointResponse> getTraffic(Instant from, Instant to, String granularity) {
     TimeRange range = range(from, to);
     String bucket = bucket(granularity);
-    return apiTrafficLogRepository
-        .findTrafficAggregation(range.from(), range.to(), bucket)
-        .stream()
+    return apiTrafficLogRepository.findTrafficAggregation(range.from(), range.to(), bucket).stream()
         .map(
             row ->
                 TrafficPointResponse.builder()
@@ -96,9 +94,7 @@ public class AdminSystemHealthServiceImpl implements AdminSystemHealthService {
   public List<TopEndpointResponse> getTopEndpoints(Instant from, Instant to, int limit) {
     TimeRange range = range(from, to);
     int safeLimit = Math.max(1, Math.min(limit, 100));
-    return apiTrafficLogRepository
-        .findTopEndpoints(range.from(), range.to(), safeLimit)
-        .stream()
+    return apiTrafficLogRepository.findTopEndpoints(range.from(), range.to(), safeLimit).stream()
         .map(
             row ->
                 TopEndpointResponse.builder()
@@ -114,9 +110,7 @@ public class AdminSystemHealthServiceImpl implements AdminSystemHealthService {
   @Override
   public List<SystemErrorResponse> getErrors(Instant from, Instant to) {
     TimeRange range = range(from, to);
-    return apiTrafficLogRepository
-        .findRecentErrors(range.from(), range.to())
-        .stream()
+    return apiTrafficLogRepository.findRecentErrors(range.from(), range.to()).stream()
         .map(
             row ->
                 SystemErrorResponse.builder()
@@ -168,7 +162,8 @@ public class AdminSystemHealthServiceImpl implements AdminSystemHealthService {
   private ServiceHealthResponse checkStorage() {
     long start = System.nanoTime();
     if (!minioStorageProperties.configured()) {
-      return service("MinIO Storage", "UNCONFIGURED", start, "MinIO/S3 settings are not configured");
+      return service(
+          "MinIO Storage", "UNCONFIGURED", start, "MinIO/S3 settings are not configured");
     }
     AmazonS3 s3 = s3Provider.getIfAvailable();
     if (s3 == null) {
@@ -183,7 +178,8 @@ public class AdminSystemHealthServiceImpl implements AdminSystemHealthService {
     }
   }
 
-  private ServiceHealthResponse service(String name, String status, long startNanos, String message) {
+  private ServiceHealthResponse service(
+      String name, String status, long startNanos, String message) {
     return ServiceHealthResponse.builder()
         .name(name)
         .status(status)

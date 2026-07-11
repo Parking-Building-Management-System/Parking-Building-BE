@@ -1,0 +1,27 @@
+meta {
+  name: Report Occupied Assigned Slot
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/pwa/cards/{{qrToken}}/reports/occupied-slot
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "offenderPlateNumber": "51A-99999",
+    "evidenceImageUrl": "{{occupiedSlotEvidenceObjectKey}}",
+    "note": "Assigned slot is occupied."
+  }
+}
+
+docs {
+  The report remains REPORTED for staff review. The victim is reassigned immediately when a matching vehicle-type slot is available; no penalty is applied until staff approval.
+}

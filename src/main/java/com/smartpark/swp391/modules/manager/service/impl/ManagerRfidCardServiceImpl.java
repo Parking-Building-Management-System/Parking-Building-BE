@@ -115,7 +115,7 @@ public class ManagerRfidCardServiceImpl implements ManagerRfidCardService {
       return request.count();
     }
 
-    long slots = slotRepository.countByTenantIdAndIsDeletedFalse(currentTenantId());
+    long slots = slotRepository.countByTenantId(currentTenantId());
     return Math.max((int) Math.ceil(slots * 1.2), 50);
   }
 

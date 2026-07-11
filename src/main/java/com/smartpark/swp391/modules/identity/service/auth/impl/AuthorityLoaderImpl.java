@@ -49,10 +49,7 @@ public class AuthorityLoaderImpl implements AuthorityLoader {
 
     // 4. Push Cache
     return new SessionAuthzCache(
-        userId,
-        tenantId,
-        roles,
-        permissions != null ? permissions : List.of());
+        userId, tenantId, roles, permissions != null ? permissions : List.of());
   }
 
   private List<String> expandEffectiveRoles(List<String> roles) {

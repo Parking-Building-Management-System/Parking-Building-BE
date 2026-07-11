@@ -98,6 +98,18 @@ public class ManagerFacilityController {
         managerTenantContext.call(jwt, () -> managerFacilityService.updateParking(id, request)));
   }
 
+  @DeleteMapping("/parkings/{id}")
+  @Operation(
+      summary = "Permanently delete parking",
+      description =
+          "Irreversibly deletes the selected parking and all parking-owned facility, operation,"
+              + " payment, fire safety, violation, and settlement records.")
+  public ResponseEntity<Void> deleteParking(
+      @PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+    managerTenantContext.run(jwt, () -> managerFacilityService.deleteParking(id));
+    return ResponseEntity.noContent().build();
+  }
+
   @PatchMapping("/parkings/{id}/status")
   @Operation(
       summary = "Update parking status",
@@ -167,7 +179,7 @@ public class ManagerFacilityController {
   }
 
   @DeleteMapping("/floors/{id}")
-  @Operation(summary = "Delete floor", description = "Soft-deletes an empty tenant floor.")
+  @Operation(summary = "Delete floor", description = "Permanently deletes an empty tenant floor.")
   public ResponseEntity<ApiResponse<Void>> deleteFloor(
       @PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
     managerTenantContext.run(jwt, () -> managerFacilityService.deleteFloor(id));
@@ -219,7 +231,7 @@ public class ManagerFacilityController {
   }
 
   @DeleteMapping("/zones/{id}")
-  @Operation(summary = "Delete zone", description = "Soft-deletes an empty tenant zone.")
+  @Operation(summary = "Delete zone", description = "Permanently deletes an empty tenant zone.")
   public ResponseEntity<ApiResponse<Void>> deleteZone(
       @PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
     managerTenantContext.run(jwt, () -> managerFacilityService.deleteZone(id));

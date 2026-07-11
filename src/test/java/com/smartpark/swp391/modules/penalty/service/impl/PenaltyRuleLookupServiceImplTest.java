@@ -61,7 +61,8 @@ class PenaltyRuleLookupServiceImplTest {
     when(penaltyRuleRepository.findActiveTenantDefaultRules(tenantId, PenaltyType.LOST_CARD))
         .thenReturn(List.of());
 
-    assertThatThrownBy(() -> service().requireActiveRule(tenantId, parkingId, PenaltyType.LOST_CARD))
+    assertThatThrownBy(
+            () -> service().requireActiveRule(tenantId, parkingId, PenaltyType.LOST_CARD))
         .isInstanceOf(ApiException.class)
         .hasMessage("PENALTY_RULE_NOT_CONFIGURED");
   }

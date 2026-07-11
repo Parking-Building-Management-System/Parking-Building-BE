@@ -33,5 +33,7 @@ public record ExitPreviewResponse(
     BigDecimal totalAmountDue,
     List<PenaltyCaseResponse> penaltyCases,
     boolean hasUnpaidPenalties,
+    boolean hasPendingViolationReview,
+    int pendingViolationReportCount,
     String currency,
     String message) {}

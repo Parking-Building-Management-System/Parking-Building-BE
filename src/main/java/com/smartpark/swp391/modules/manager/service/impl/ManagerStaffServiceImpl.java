@@ -55,8 +55,7 @@ public class ManagerStaffServiceImpl implements ManagerStaffService {
     Specification<User> specification =
         ManagerStaffSpecifications.tenantStaff(currentTenantId(), STAFF_ROLE, status)
             .and(ManagerStaffSpecifications.search(search));
-    var staffPage =
-        userRepository.findAll(specification, pageable);
+    var staffPage = userRepository.findAll(specification, pageable);
 
     return new PageResponse<>(
         staffPage.getContent().stream().map(this::toResponse).toList(),
@@ -79,7 +78,8 @@ public class ManagerStaffServiceImpl implements ManagerStaffService {
     Role staffRole =
         roleRepository
             .findByName(STAFF_ROLE)
-            .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Missing STAFF role"));
+            .orElseThrow(
+                () -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Missing STAFF role"));
 
     User staff =
         userRepository.save(

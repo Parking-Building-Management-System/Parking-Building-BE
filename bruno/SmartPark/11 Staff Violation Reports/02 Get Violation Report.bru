@@ -1,0 +1,15 @@
+meta {
+  name: Get Violation Report Detail
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/staff/violation-reports/{{violationReportId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{staffExitToken}}
+}

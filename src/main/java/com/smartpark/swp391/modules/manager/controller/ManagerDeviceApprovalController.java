@@ -58,8 +58,7 @@ public class ManagerDeviceApprovalController {
     return ok(
         "/manager/device-approvals/" + id + "/approve",
         managerTenantContext.call(
-            jwt,
-            () -> managerDeviceApprovalService.approve(id, request, extractUserId(jwt))));
+            jwt, () -> managerDeviceApprovalService.approve(id, request, extractUserId(jwt))));
   }
 
   @PostMapping("/device-approvals/{id}/reject")

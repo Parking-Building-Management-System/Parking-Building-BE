@@ -52,8 +52,7 @@ public class AdminSystemHealthController {
           Instant to,
       @RequestParam(defaultValue = "HOUR") String granularity) {
     return ok(
-        "/admin/system-health/traffic",
-        adminSystemHealthService.getTraffic(from, to, granularity));
+        "/admin/system-health/traffic", adminSystemHealthService.getTraffic(from, to, granularity));
   }
 
   @GetMapping("/top-endpoints")

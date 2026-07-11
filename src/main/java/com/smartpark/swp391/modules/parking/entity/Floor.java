@@ -14,7 +14,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.Filter;
-import org.hibernate.annotations.SQLRestriction;
 
 @Entity
 @Table(name = "floors")
@@ -24,7 +23,6 @@ import org.hibernate.annotations.SQLRestriction;
 @NoArgsConstructor
 @AllArgsConstructor
 @Filter(name = TenantScopedEntity.TENANT_FILTER, condition = "tenant_id = cast(:tenantId as uuid)")
-@SQLRestriction("is_deleted = false")
 public class Floor extends TenantScopedEntity {
 
   @ManyToOne(fetch = FetchType.LAZY)
@@ -47,8 +45,4 @@ public class Floor extends TenantScopedEntity {
 
   @Column(name = "map_image_url", length = 1000)
   private String mapImageUrl;
-
-  @Column(name = "is_deleted", nullable = false)
-  @Builder.Default
-  private boolean deleted = false;
 }

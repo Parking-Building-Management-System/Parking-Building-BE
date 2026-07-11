@@ -7,6 +7,4 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public record ManagerKioskUpdateRequest(
-    @NotBlank @Size(max = 100) String name,
-    @NotNull KioskType type,
-    @NotNull KioskStatus status) {}
+    @NotBlank @Size(max = 100) String name, @NotNull KioskType type, @NotNull KioskStatus status) {}

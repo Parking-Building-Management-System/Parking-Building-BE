@@ -8,16 +8,15 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 public interface FloorRepository extends JpaRepository<Floor, UUID> {
-  List<Floor> findAllByParkingIdAndDeletedFalseOrderByDisplayOrderAscNameAsc(UUID parkingId);
+  List<Floor> findAllByParkingIdOrderByDisplayOrderAscNameAsc(UUID parkingId);
 
-  Optional<Floor> findByIdAndTenantIdAndDeletedFalse(UUID id, UUID tenantId);
+  Optional<Floor> findByIdAndTenantId(UUID id, UUID tenantId);
 
-  Optional<Floor> findByParkingIdAndCodeIgnoreCaseAndDeletedFalse(UUID parkingId, String code);
+  Optional<Floor> findByParkingIdAndCodeIgnoreCase(UUID parkingId, String code);
 
-  boolean existsByParkingIdAndCodeIgnoreCaseAndDeletedFalse(UUID parkingId, String code);
+  boolean existsByParkingIdAndCodeIgnoreCase(UUID parkingId, String code);
 
-  boolean existsByParkingIdAndCodeIgnoreCaseAndIdNotAndDeletedFalse(
-      UUID parkingId, String code, UUID id);
+  boolean existsByParkingIdAndCodeIgnoreCaseAndIdNot(UUID parkingId, String code, UUID id);
 
   @Query(
       """
@@ -25,8 +24,6 @@ public interface FloorRepository extends JpaRepository<Floor, UUID> {
           FROM Floor f
           JOIN FETCH f.tenant t
           JOIN FETCH f.parking p
-          WHERE f.deleted = false
-            AND p.isDeleted = false
           ORDER BY t.slug ASC, p.name ASC, f.displayOrder ASC, f.name ASC
           """)
   List<Floor> findAllForDemoSeed();

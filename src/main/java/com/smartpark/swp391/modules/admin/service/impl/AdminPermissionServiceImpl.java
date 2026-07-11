@@ -59,7 +59,9 @@ public class AdminPermissionServiceImpl implements AdminPermissionService {
   @Transactional(readOnly = true)
   public List<PermissionScopeNode> getRolePermissionTree(UUID roleId) {
     requireRole(roleId);
-    return cacheService.getRolePermissionTree(roleId).orElseGet(() -> loadRolePermissionTree(roleId));
+    return cacheService
+        .getRolePermissionTree(roleId)
+        .orElseGet(() -> loadRolePermissionTree(roleId));
   }
 
   @Override
@@ -71,14 +73,13 @@ public class AdminPermissionServiceImpl implements AdminPermissionService {
     List<Permission> permissions = permissionRepository.findAllById(permissionIds);
     if (permissions.size() != permissionIds.size()
         || permissions.stream().anyMatch(permission -> permission.isDeleted())) {
-      throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "One or more permissions were not found");
+      throw new ApiException(
+          ErrorCode.RESOURCE_NOT_FOUND, "One or more permissions were not found");
     }
 
     rolePermissionRepository.deleteByRoleId(roleId);
     List<RolePermission> rolePermissions =
-        permissions.stream()
-            .map(permission -> rolePermission(role, permission))
-            .toList();
+        permissions.stream().map(permission -> rolePermission(role, permission)).toList();
     rolePermissionRepository.saveAll(rolePermissions);
     cacheService.evictRolePermissionTree(roleId);
     return RolePermissionUpdateResponse.builder()
@@ -152,7 +153,8 @@ public class AdminPermissionServiceImpl implements AdminPermissionService {
   public void deletePermission(UUID id) {
     Permission permission = requirePermission(id);
     if (rolePermissionRepository.countByPermission_Id(id) > 0) {
-      throw new ApiException(ErrorCode.FORBIDDEN_ACTION, "Permission is assigned to one or more roles");
+      throw new ApiException(
+          ErrorCode.FORBIDDEN_ACTION, "Permission is assigned to one or more roles");
     }
     permission.setDeleted(true);
     permission.setStatus("INACTIVE");
@@ -193,13 +195,13 @@ public class AdminPermissionServiceImpl implements AdminPermissionService {
       List<Permission> permissions, Set<UUID> selectedIds, boolean includeSelected) {
     Map<String, ScopeGroup> scopes = new LinkedHashMap<>();
     for (Permission permission : permissions) {
-      ScopeGroup scope =
-          scopes.computeIfAbsent(permission.getScope(), key -> new ScopeGroup(key));
+      ScopeGroup scope = scopes.computeIfAbsent(permission.getScope(), key -> new ScopeGroup(key));
       ModuleGroup module =
           scope.modules.computeIfAbsent(permission.getModule(), key -> new ModuleGroup(key));
       ResourceGroup resource =
           module.resources.computeIfAbsent(permission.getResource(), key -> new ResourceGroup(key));
-      LabelGroup label = resource.labels.computeIfAbsent(permission.getLabel(), key -> new LabelGroup(key));
+      LabelGroup label =
+          resource.labels.computeIfAbsent(permission.getLabel(), key -> new LabelGroup(key));
       label.actions.add(
           PermissionActionNode.builder()
               .id(permission.getId())
@@ -224,9 +226,7 @@ public class AdminPermissionServiceImpl implements AdminPermissionService {
 
   private void evictPermissionCachesFor(UUID permissionId) {
     cacheService.evictPermissionTree();
-    rolePermissionRepository
-        .findAll()
-        .stream()
+    rolePermissionRepository.findAll().stream()
         .filter(rp -> permissionId.equals(rp.getPermission().getId()))
         .map(rp -> rp.getRole().getId())
         .distinct()
@@ -241,7 +241,9 @@ public class AdminPermissionServiceImpl implements AdminPermissionService {
         request.label().trim(),
         upper(request.action()),
         blankToNull(request.description()),
-        request.status() == null || request.status().isBlank() ? "ACTIVE" : upper(request.status()));
+        request.status() == null || request.status().isBlank()
+            ? "ACTIVE"
+            : upper(request.status()));
   }
 
   private String upper(String value) {

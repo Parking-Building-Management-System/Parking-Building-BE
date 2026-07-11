@@ -145,7 +145,9 @@ class ManagerPenaltyRuleServiceImplTest {
     when(penaltyRuleRepository.save(rule)).thenAnswer(this::saveRule);
 
     var response =
-        service().updateStatus(rule.getId(), new ManagerPenaltyRuleStatusRequest(PenaltyRuleStatus.INACTIVE));
+        service()
+            .updateStatus(
+                rule.getId(), new ManagerPenaltyRuleStatusRequest(PenaltyRuleStatus.INACTIVE));
 
     assertThat(response.status()).isEqualTo(PenaltyRuleStatus.INACTIVE);
     verify(penaltyRuleRepository).save(rule);
@@ -167,7 +169,7 @@ class ManagerPenaltyRuleServiceImplTest {
   @Test
   void createParkingScopedRuleValidatesParkingScope() {
     when(tenantRepository.getReferenceById(tenant.getId())).thenReturn(tenant);
-    when(parkingRepository.findByIdAndTenantIdAndIsDeletedFalse(parking.getId(), tenant.getId()))
+    when(parkingRepository.findByIdAndTenantId(parking.getId(), tenant.getId()))
         .thenReturn(Optional.of(parking));
     when(penaltyRuleRepository.existsActiveScope(
             tenant.getId(),
@@ -194,7 +196,7 @@ class ManagerPenaltyRuleServiceImplTest {
 
     assertThat(response.parkingId()).isEqualTo(parking.getId());
     assertThat(response.code()).isEqualTo("SLOT_VIOLATION");
-    verify(parkingRepository).findByIdAndTenantIdAndIsDeletedFalse(parking.getId(), tenant.getId());
+    verify(parkingRepository).findByIdAndTenantId(parking.getId(), tenant.getId());
     verify(penaltyRuleRepository)
         .existsActiveScope(
             eq(tenant.getId()),

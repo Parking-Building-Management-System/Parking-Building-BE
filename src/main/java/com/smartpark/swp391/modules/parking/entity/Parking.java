@@ -14,7 +14,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.Filter;
-import org.hibernate.annotations.SQLRestriction;
 
 @Entity
 @Table(name = "parkings")
@@ -24,7 +23,6 @@ import org.hibernate.annotations.SQLRestriction;
 @NoArgsConstructor
 @AllArgsConstructor
 @Filter(name = TenantScopedEntity.TENANT_FILTER, condition = "tenant_id = cast(:tenantId as uuid)")
-@SQLRestriction("is_deleted = false")
 public class Parking extends TenantScopedEntity {
 
   @Column(nullable = false, length = 50)
@@ -44,8 +42,4 @@ public class Parking extends TenantScopedEntity {
   @Column(nullable = false, length = 20)
   @Builder.Default
   private ParkingStatus status = ParkingStatus.ACTIVE;
-
-  @Column(name = "is_deleted", nullable = false)
-  @Builder.Default
-  private boolean isDeleted = false;
 }

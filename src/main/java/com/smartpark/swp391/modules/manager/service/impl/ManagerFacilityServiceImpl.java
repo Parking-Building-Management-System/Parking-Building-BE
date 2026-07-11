@@ -3,6 +3,7 @@ package com.smartpark.swp391.modules.manager.service.impl;
 import com.smartpark.swp391.common.exception.ApiException;
 import com.smartpark.swp391.common.exception.ErrorCode;
 import com.smartpark.swp391.infrastructure.cached.redis.service.ManagerFacilityCacheService;
+import com.smartpark.swp391.infrastructure.storage.service.StorageService;
 import com.smartpark.swp391.infrastructure.tenant.TenantContext;
 import com.smartpark.swp391.modules.identity.entity.Tenant;
 import com.smartpark.swp391.modules.identity.repository.TenantRepository;
@@ -27,6 +28,7 @@ import com.smartpark.swp391.modules.parking.repository.FloorRepository;
 import com.smartpark.swp391.modules.parking.repository.ParkingRepository;
 import com.smartpark.swp391.modules.parking.repository.SlotRepository;
 import com.smartpark.swp391.modules.parking.repository.ZoneRepository;
+import com.smartpark.swp391.modules.payment.repository.PaymentWebhookLogRepository;
 import com.smartpark.swp391.modules.vehicle.entity.VehicleType;
 import com.smartpark.swp391.modules.vehicle.repository.VehicleTypeRepository;
 import java.util.Collections;
@@ -37,10 +39,14 @@ import java.util.stream.Collectors;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 public class ManagerFacilityServiceImpl implements ManagerFacilityService {
@@ -52,13 +58,13 @@ public class ManagerFacilityServiceImpl implements ManagerFacilityService {
   VehicleTypeRepository vehicleTypeRepository;
   TenantRepository tenantRepository;
   ManagerFacilityCacheService managerFacilityCacheService;
+  PaymentWebhookLogRepository paymentWebhookLogRepository;
+  StorageService storageService;
 
   @Override
   @Transactional(readOnly = true)
   public List<ParkingResponse> getParkings() {
-    return parkingRepository
-        .findAllByTenantIdAndIsDeletedFalseOrderByNameAsc(currentTenantId())
-        .stream()
+    return parkingRepository.findAllByTenantIdOrderByNameAsc(currentTenantId()).stream()
         .map(this::toParkingResponse)
         .toList();
   }
@@ -74,7 +80,7 @@ public class ManagerFacilityServiceImpl implements ManagerFacilityService {
   public ParkingResponse createParking(ParkingRequest request) {
     String code = normalizeCode(request.code());
     UUID tenantId = currentTenantId();
-    if (parkingRepository.existsByTenantIdAndCodeIgnoreCaseAndIsDeletedFalse(tenantId, code)) {
+    if (parkingRepository.existsByTenantIdAndCodeIgnoreCase(tenantId, code)) {
       throw new ApiException(ErrorCode.DUPLICATE_RESOURCE, "Parking code already exists");
     }
 
@@ -86,7 +92,6 @@ public class ManagerFacilityServiceImpl implements ManagerFacilityService {
             .address(trimToNull(request.address()))
             .totalCapacity(0)
             .status(request.status() == null ? ParkingStatus.ACTIVE : request.status())
-            .isDeleted(false)
             .build();
 
     return toParkingResponse(parkingRepository.save(parking));
@@ -98,8 +103,7 @@ public class ManagerFacilityServiceImpl implements ManagerFacilityService {
     Parking parking = getParkingOrThrow(id);
     String code = normalizeCode(request.code());
     UUID tenantId = currentTenantId();
-    if (parkingRepository.existsByTenantIdAndCodeIgnoreCaseAndIdNotAndIsDeletedFalse(
-        tenantId, code, id)) {
+    if (parkingRepository.existsByTenantIdAndCodeIgnoreCaseAndIdNot(tenantId, code, id)) {
       throw new ApiException(ErrorCode.DUPLICATE_RESOURCE, "Parking code already exists");
     }
 
@@ -117,12 +121,26 @@ public class ManagerFacilityServiceImpl implements ManagerFacilityService {
 
   @Override
   @Transactional
+  public void deleteParking(UUID id) {
+    Parking parking = getParkingOrThrow(id);
+    UUID tenantId = currentTenantId();
+    List<String> storageObjectKeys = parkingRepository.findStorageObjectKeysByParkingId(id);
+    List<Long> paymentOrderCodes = parkingRepository.findPaymentOrderCodesByParkingId(id);
+
+    if (!paymentOrderCodes.isEmpty()) {
+      paymentWebhookLogRepository.deleteByOrderCodes(paymentOrderCodes);
+    }
+    parkingRepository.delete(parking);
+    evictTopology(id);
+    scheduleStorageCleanup(tenantId, storageObjectKeys);
+  }
+
+  @Override
+  @Transactional
   public ParkingStatusResponse updateParkingStatus(UUID id, ParkingStatusRequest request) {
     Parking parking = getParkingOrThrow(id);
     ParkingStatus nextStatus =
-        request == null
-            ? toggleStatus(parking.getStatus())
-            : request.status();
+        request == null ? toggleStatus(parking.getStatus()) : request.status();
 
     parking.setStatus(nextStatus);
     parkingRepository.save(parking);
@@ -149,9 +167,7 @@ public class ManagerFacilityServiceImpl implements ManagerFacilityService {
   @Transactional(readOnly = true)
   public List<FloorResponse> getFloors(UUID parkingId) {
     getParkingOrThrow(parkingId);
-    return floorRepository
-        .findAllByParkingIdAndDeletedFalseOrderByDisplayOrderAscNameAsc(parkingId)
-        .stream()
+    return floorRepository.findAllByParkingIdOrderByDisplayOrderAscNameAsc(parkingId).stream()
         .map(this::toFloorResponse)
         .toList();
   }
@@ -168,7 +184,7 @@ public class ManagerFacilityServiceImpl implements ManagerFacilityService {
     Parking parking = getParkingOrThrow(parkingId);
     String code = normalizeCode(request.code());
 
-    if (floorRepository.existsByParkingIdAndCodeIgnoreCaseAndDeletedFalse(parkingId, code)) {
+    if (floorRepository.existsByParkingIdAndCodeIgnoreCase(parkingId, code)) {
       throw new ApiException(ErrorCode.DUPLICATE_RESOURCE, "Floor code already exists");
     }
 
@@ -180,7 +196,6 @@ public class ManagerFacilityServiceImpl implements ManagerFacilityService {
             .name(request.name().trim())
             .displayOrder(request.displayOrder())
             .active(request.active() == null || request.active())
-            .deleted(false)
             .build();
 
     Floor saved = floorRepository.save(floor);
@@ -195,8 +210,7 @@ public class ManagerFacilityServiceImpl implements ManagerFacilityService {
     UUID parkingId = floor.getParking().getId();
     String code = normalizeCode(request.code());
 
-    if (floorRepository.existsByParkingIdAndCodeIgnoreCaseAndIdNotAndDeletedFalse(
-        parkingId, code, id)) {
+    if (floorRepository.existsByParkingIdAndCodeIgnoreCaseAndIdNot(parkingId, code, id)) {
       throw new ApiException(ErrorCode.DUPLICATE_RESOURCE, "Floor code already exists");
     }
 
@@ -216,21 +230,24 @@ public class ManagerFacilityServiceImpl implements ManagerFacilityService {
   @Transactional
   public void deleteFloor(UUID id) {
     Floor floor = getFloorOrThrow(id);
-    long zoneCount = zoneRepository.countByFloorIdAndIsDeletedFalse(id);
+    long zoneCount = zoneRepository.countByFloorId(id);
     if (zoneCount > 0) {
       throw new ApiException(ErrorCode.INVALID_INPUT, "Cannot delete a floor that still has zones");
     }
 
-    floor.setDeleted(true);
-    floorRepository.save(floor);
-    evictTopology(floor.getParking().getId());
+    UUID tenantId = currentTenantId();
+    UUID parkingId = floor.getParking().getId();
+    String mapObjectKey = floor.getMapImageUrl();
+    floorRepository.delete(floor);
+    evictTopology(parkingId);
+    scheduleStorageCleanup(tenantId, mapObjectKey == null ? List.of() : List.of(mapObjectKey));
   }
 
   @Override
   @Transactional(readOnly = true)
   public List<ZoneResponse> getZones(UUID floorId) {
     getFloorOrThrow(floorId);
-    return zoneRepository.findAllByFloorIdAndIsDeletedFalseOrderByNameAsc(floorId).stream()
+    return zoneRepository.findAllByFloorIdOrderByNameAsc(floorId).stream()
         .map(this::toZoneResponse)
         .toList();
   }
@@ -248,7 +265,7 @@ public class ManagerFacilityServiceImpl implements ManagerFacilityService {
     Parking parking = floor.getParking();
     String code = normalizeCode(request.code());
 
-    if (zoneRepository.existsByParkingIdAndCodeIgnoreCaseAndIsDeletedFalse(parking.getId(), code)) {
+    if (zoneRepository.existsByParkingIdAndCodeIgnoreCase(parking.getId(), code)) {
       throw new ApiException(ErrorCode.DUPLICATE_RESOURCE, "Zone code already exists");
     }
 
@@ -264,7 +281,6 @@ public class ManagerFacilityServiceImpl implements ManagerFacilityService {
             .floorName(floor.getName())
             .capacity(request.capacity())
             .status(request.status() == null ? ZoneStatus.ACTIVE : request.status())
-            .isDeleted(false)
             .build();
 
     Zone saved = zoneRepository.save(zone);
@@ -275,16 +291,21 @@ public class ManagerFacilityServiceImpl implements ManagerFacilityService {
   @Override
   @Transactional
   public ZoneResponse updateZone(UUID id, ZoneRequest request) {
-    Zone zone = getZoneOrThrow(id);
+    Zone zone = getZoneOrThrowForUpdate(id);
     String code = normalizeCode(request.code());
     UUID parkingId = zone.getParking().getId();
 
-    if (zoneRepository.existsByParkingIdAndCodeIgnoreCaseAndIdNotAndIsDeletedFalse(
-        parkingId, code, id)) {
+    if (zoneRepository.existsByParkingIdAndCodeIgnoreCaseAndIdNot(parkingId, code, id)) {
       throw new ApiException(ErrorCode.DUPLICATE_RESOURCE, "Zone code already exists");
     }
 
     VehicleType vehicleType = getVehicleTypeOrThrow(request.vehicleTypeCode());
+    long slotCount = slotRepository.countByZoneId(id);
+    if (request.capacity() < slotCount) {
+      throw new ApiException(
+          ErrorCode.INVALID_INPUT,
+          "Zone capacity cannot be lower than its current slot count (" + slotCount + ").");
+    }
     zone.setCode(code);
     zone.setName(request.name().trim());
     zone.setVehicleType(vehicleType);
@@ -305,21 +326,19 @@ public class ManagerFacilityServiceImpl implements ManagerFacilityService {
   @Transactional
   public void deleteZone(UUID id) {
     Zone zone = getZoneOrThrow(id);
-    long slotCount = slotRepository.countByZoneIdAndIsDeletedFalse(id);
+    long slotCount = slotRepository.countByZoneId(id);
     if (slotCount > 0) {
       throw new ApiException(ErrorCode.INVALID_INPUT, "Cannot delete a zone that still has slots");
     }
 
-    zone.setDeleted(true);
-    zoneRepository.save(zone);
+    zoneRepository.delete(zone);
     evictTopology(zone.getParking().getId());
   }
 
   private ParkingTopologyResponse buildTopology(UUID parkingId) {
     Parking parking = getParkingOrThrow(parkingId);
-    List<Floor> floors =
-        floorRepository.findAllByParkingIdAndDeletedFalseOrderByDisplayOrderAscNameAsc(parkingId);
-    List<Zone> zones = zoneRepository.findAllByParkingIdAndIsDeletedFalseOrderByNameAsc(parkingId);
+    List<Floor> floors = floorRepository.findAllByParkingIdOrderByDisplayOrderAscNameAsc(parkingId);
+    List<Zone> zones = zoneRepository.findAllByParkingIdOrderByNameAsc(parkingId);
     Map<UUID, List<Zone>> zonesByFloorId =
         zones.stream()
             .filter(zone -> zone.getFloor() != null)
@@ -333,7 +352,7 @@ public class ManagerFacilityServiceImpl implements ManagerFacilityService {
         .code(parking.getCode())
         .name(parking.getName())
         .status(parking.getStatus())
-        .totalCapacity((int) slotRepository.countByParkingIdAndIsDeletedFalse(parking.getId()))
+        .totalCapacity((int) slotRepository.countByParkingId(parking.getId()))
         .floors(floorResponses)
         .build();
   }
@@ -363,7 +382,7 @@ public class ManagerFacilityServiceImpl implements ManagerFacilityService {
         .vehicleTypeCode(vehicleType == null ? null : vehicleType.getCode())
         .vehicleTypeName(vehicleType == null ? null : vehicleType.getName())
         .capacity(zone.getCapacity())
-        .slotCount(slotRepository.countByZoneIdAndIsDeletedFalse(zone.getId()))
+        .slotCount(slotRepository.countByZoneId(zone.getId()))
         .status(zone.getStatus())
         .build();
   }
@@ -374,7 +393,7 @@ public class ManagerFacilityServiceImpl implements ManagerFacilityService {
         .code(parking.getCode())
         .name(parking.getName())
         .address(parking.getAddress())
-        .totalCapacity((int) slotRepository.countByParkingIdAndIsDeletedFalse(parking.getId()))
+        .totalCapacity((int) slotRepository.countByParkingId(parking.getId()))
         .status(parking.getStatus())
         .build();
   }
@@ -401,26 +420,60 @@ public class ManagerFacilityServiceImpl implements ManagerFacilityService {
         .vehicleTypeCode(vehicleType == null ? null : vehicleType.getCode())
         .vehicleTypeName(vehicleType == null ? null : vehicleType.getName())
         .capacity(zone.getCapacity())
+        .slotCount((int) slotRepository.countByZoneId(zone.getId()))
         .status(zone.getStatus())
         .build();
   }
 
   private Parking getParkingOrThrow(UUID id) {
     return parkingRepository
-        .findByIdAndTenantIdAndIsDeletedFalse(id, currentTenantId())
+        .findByIdAndTenantId(id, currentTenantId())
         .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Parking not found"));
   }
 
   private Floor getFloorOrThrow(UUID id) {
     return floorRepository
-        .findByIdAndTenantIdAndDeletedFalse(id, currentTenantId())
+        .findByIdAndTenantId(id, currentTenantId())
         .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Floor not found"));
   }
 
   private Zone getZoneOrThrow(UUID id) {
     return zoneRepository
-        .findByIdAndTenantIdAndIsDeletedFalse(id, currentTenantId())
+        .findByIdAndTenantId(id, currentTenantId())
         .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Zone not found"));
+  }
+
+  private Zone getZoneOrThrowForUpdate(UUID id) {
+    return zoneRepository
+        .findByIdAndTenantIdForUpdate(id, currentTenantId())
+        .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Zone not found"));
+  }
+
+  private void scheduleStorageCleanup(UUID tenantId, List<String> objectKeys) {
+    List<String> trustedKeys =
+        objectKeys.stream()
+            .filter(key -> key != null && key.startsWith("tenants/" + tenantId + "/"))
+            .distinct()
+            .toList();
+    if (trustedKeys.isEmpty()) {
+      return;
+    }
+
+    TransactionSynchronizationManager.registerSynchronization(
+        new TransactionSynchronization() {
+          @Override
+          public void afterCommit() {
+            trustedKeys.forEach(
+                objectKey -> {
+                  try {
+                    storageService.deleteObject(tenantId, objectKey);
+                  } catch (RuntimeException exception) {
+                    log.warn(
+                        "Could not remove parking-owned storage object {}", objectKey, exception);
+                  }
+                });
+          }
+        });
   }
 
   private VehicleType getVehicleTypeOrThrow(String code) {

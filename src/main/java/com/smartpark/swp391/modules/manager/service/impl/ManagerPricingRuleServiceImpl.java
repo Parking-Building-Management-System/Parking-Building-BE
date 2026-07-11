@@ -191,7 +191,7 @@ public class ManagerPricingRuleServiceImpl implements ManagerPricingRuleService 
 
   private Parking getParkingOrThrow(UUID parkingId) {
     return parkingRepository
-        .findByIdAndTenantIdAndIsDeletedFalse(parkingId, currentTenantId())
+        .findByIdAndTenantId(parkingId, currentTenantId())
         .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Parking not found"));
   }
 

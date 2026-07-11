@@ -278,7 +278,7 @@ public class ManagerFireExtinguisherServiceImpl implements ManagerFireExtinguish
   private ValidatedLocation validateLocation(UUID parkingId, UUID floorId, UUID zoneId) {
     Parking parking =
         parkingRepository
-            .findByIdAndTenantIdAndIsDeletedFalse(parkingId, currentTenantId())
+            .findByIdAndTenantId(parkingId, currentTenantId())
             .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Parking not found"));
     Floor floor = getFloorOrThrow(floorId);
     if (!floor.getParking().getId().equals(parking.getId())) {
@@ -288,7 +288,7 @@ public class ManagerFireExtinguisherServiceImpl implements ManagerFireExtinguish
     if (zoneId != null) {
       zone =
           zoneRepository
-              .findByIdAndTenantIdAndIsDeletedFalse(zoneId, currentTenantId())
+              .findByIdAndTenantId(zoneId, currentTenantId())
               .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Zone not found"));
       if (zone.getFloor() == null || !zone.getFloor().getId().equals(floor.getId())) {
         throw new ApiException(ErrorCode.INVALID_INPUT, "Zone does not belong to floor");
@@ -299,7 +299,7 @@ public class ManagerFireExtinguisherServiceImpl implements ManagerFireExtinguish
 
   private Floor getFloorOrThrow(UUID floorId) {
     return floorRepository
-        .findByIdAndTenantIdAndDeletedFalse(floorId, currentTenantId())
+        .findByIdAndTenantId(floorId, currentTenantId())
         .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Floor not found"));
   }
 

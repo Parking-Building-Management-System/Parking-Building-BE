@@ -112,4 +112,14 @@ public class PenaltyCase extends TenantScopedEntity {
 
   @Column(name = "collected_at")
   private LocalDateTime collectedAt;
+
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "reviewed_by_staff_id")
+  private User reviewedByStaff;
+
+  @Column(name = "reviewed_at")
+  private LocalDateTime reviewedAt;
+
+  @Column(name = "review_note", length = 1000)
+  private String reviewNote;
 }

@@ -1,0 +1,26 @@
+meta {
+  name: Presign Occupied Slot Evidence
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/pwa/cards/{{qrToken}}/reports/upload-url
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "fileName": "occupied-slot-evidence.jpg",
+    "contentType": "image/jpeg"
+  }
+}
+
+docs {
+  PUT the image to the returned uploadUrl, then copy objectKey into occupiedSlotEvidenceObjectKey for the report request.
+}

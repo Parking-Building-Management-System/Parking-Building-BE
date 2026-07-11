@@ -42,7 +42,8 @@ class ManagerDeviceApprovalServiceImplTest {
   @Test
   void approveWithNullExpiresAtStoresPermanentApproval() {
     TestFixture fixture = fixture();
-    when(deviceRepository.save(any(Device.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    when(deviceRepository.save(any(Device.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
 
     var result =
         service()
@@ -60,7 +61,8 @@ class ManagerDeviceApprovalServiceImplTest {
   void approveWithFutureExpiresAtSucceeds() {
     TestFixture fixture = fixture();
     LocalDateTime future = LocalDateTime.now().plusHours(1);
-    when(deviceRepository.save(any(Device.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    when(deviceRepository.save(any(Device.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
 
     var result =
         service()
@@ -82,7 +84,8 @@ class ManagerDeviceApprovalServiceImplTest {
                 service()
                     .approve(
                         fixture.deviceId,
-                        new DeviceApprovalRequest(fixture.kioskId, LocalDateTime.now().minusSeconds(1)),
+                        new DeviceApprovalRequest(
+                            fixture.kioskId, LocalDateTime.now().minusSeconds(1)),
                         fixture.managerUserId))
         .isInstanceOf(ApiException.class)
         .hasMessage("DEVICE_APPROVAL_EXPIRES_AT_MUST_BE_FUTURE");
@@ -102,9 +105,11 @@ class ManagerDeviceApprovalServiceImplTest {
     UUID parkingId = UUID.randomUUID();
     TenantContext.setTenantId(tenantId);
 
-    Tenant tenant = Tenant.builder().name("Tenant").slug("tenant").emailContact("t@example.com").build();
+    Tenant tenant =
+        Tenant.builder().name("Tenant").slug("tenant").emailContact("t@example.com").build();
     tenant.setId(tenantId);
-    User staff = User.builder().tenant(tenant).username("staff").fullName("Staff").password("x").build();
+    User staff =
+        User.builder().tenant(tenant).username("staff").fullName("Staff").password("x").build();
     staff.setId(staffId);
     Parking parking = Parking.builder().tenant(tenant).code("P1").name("Parking 1").build();
     parking.setId(parkingId);

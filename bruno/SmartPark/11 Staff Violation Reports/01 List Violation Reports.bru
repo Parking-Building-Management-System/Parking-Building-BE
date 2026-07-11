@@ -1,0 +1,19 @@
+meta {
+  name: List Violation Reports
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/staff/violation-reports?status=REPORTED
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{staffExitToken}}
+}
+
+docs {
+  Lists occupied-slot reports only for the current staff kiosk parking.
+}

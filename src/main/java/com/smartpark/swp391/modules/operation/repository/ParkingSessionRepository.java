@@ -14,6 +14,10 @@ public interface ParkingSessionRepository extends JpaRepository<ParkingSession, 
   boolean existsByTenantIdAndRfidCardIdAndStatus(
       UUID tenantId, UUID rfidCardId, ParkingSessionStatus status);
 
+  boolean existsBySlotIdAndStatus(UUID slotId, ParkingSessionStatus status);
+
+  boolean existsBySlotId(UUID slotId);
+
   @Query(
       """
           SELECT ps
@@ -88,4 +92,21 @@ public interface ParkingSessionRepository extends JpaRepository<ParkingSession, 
       @Param("tenantId") UUID tenantId,
       @Param("parkingId") UUID parkingId,
       @Param("status") ParkingSessionStatus status);
+
+  @Query(
+      """
+      SELECT ps
+      FROM ParkingSession ps
+      JOIN FETCH ps.parking p
+      JOIN FETCH ps.zone z
+      JOIN FETCH ps.slot s
+      LEFT JOIN FETCH s.floor f
+      JOIN FETCH ps.vehicleType vt
+      LEFT JOIN FETCH ps.rfidCard c
+      WHERE ps.tenant.id = :tenantId
+        AND p.id = :parkingId
+      ORDER BY ps.checkInAt DESC
+      """)
+  List<ParkingSession> findDetailsByTenantIdAndParkingId(
+      @Param("tenantId") UUID tenantId, @Param("parkingId") UUID parkingId);
 }

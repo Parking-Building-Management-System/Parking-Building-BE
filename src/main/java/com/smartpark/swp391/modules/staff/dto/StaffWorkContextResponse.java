@@ -6,8 +6,4 @@ import lombok.Builder;
 
 @Builder
 public record StaffWorkContextResponse(
-    UUID kioskId,
-    String kioskName,
-    KioskType kioskType,
-    UUID parkingId,
-    String parkingName) {}
+    UUID kioskId, String kioskName, KioskType kioskType, UUID parkingId, String parkingName) {}

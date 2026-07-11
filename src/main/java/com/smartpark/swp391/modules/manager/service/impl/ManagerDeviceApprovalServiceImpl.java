@@ -35,7 +35,9 @@ public class ManagerDeviceApprovalServiceImpl implements ManagerDeviceApprovalSe
   @Override
   @Transactional(readOnly = true)
   public List<ManagerDeviceResponse> getPendingApprovals() {
-    return deviceRepository.findByTenantIdAndStatus(currentTenantId(), DeviceStatus.PENDING).stream()
+    return deviceRepository
+        .findByTenantIdAndStatus(currentTenantId(), DeviceStatus.PENDING)
+        .stream()
         .map(this::toResponse)
         .toList();
   }
@@ -52,9 +54,9 @@ public class ManagerDeviceApprovalServiceImpl implements ManagerDeviceApprovalSe
             .findTenantKioskById(request.kioskId(), tenantId)
             .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Kiosk not found"));
 
-    if (!kioskStaffRepository.existsActiveAssignment(tenantId, kiosk.getId(), device.getUser().getId())) {
-      throw new ApiException(
-          ErrorCode.FORBIDDEN_ACTION, "STAFF_NOT_ASSIGNED_TO_KIOSK");
+    if (!kioskStaffRepository.existsActiveAssignment(
+        tenantId, kiosk.getId(), device.getUser().getId())) {
+      throw new ApiException(ErrorCode.FORBIDDEN_ACTION, "STAFF_NOT_ASSIGNED_TO_KIOSK");
     }
 
     device.setStatus(DeviceStatus.APPROVED);
@@ -91,8 +93,7 @@ public class ManagerDeviceApprovalServiceImpl implements ManagerDeviceApprovalSe
 
   private void validateExpiresAt(LocalDateTime expiresAt, LocalDateTime now) {
     if (expiresAt != null && !expiresAt.isAfter(now)) {
-      throw new ApiException(
-          ErrorCode.INVALID_INPUT, "DEVICE_APPROVAL_EXPIRES_AT_MUST_BE_FUTURE");
+      throw new ApiException(ErrorCode.INVALID_INPUT, "DEVICE_APPROVAL_EXPIRES_AT_MUST_BE_FUTURE");
     }
   }
 

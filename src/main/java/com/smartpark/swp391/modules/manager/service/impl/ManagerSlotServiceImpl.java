@@ -14,6 +14,8 @@ import com.smartpark.swp391.modules.manager.dto.slot.SlotRequest;
 import com.smartpark.swp391.modules.manager.dto.slot.SlotResponse;
 import com.smartpark.swp391.modules.manager.dto.slot.SlotStatusRequest;
 import com.smartpark.swp391.modules.manager.service.ManagerSlotService;
+import com.smartpark.swp391.modules.operation.enumType.ParkingSessionStatus;
+import com.smartpark.swp391.modules.operation.repository.ParkingSessionRepository;
 import com.smartpark.swp391.modules.parking.entity.Floor;
 import com.smartpark.swp391.modules.parking.entity.Parking;
 import com.smartpark.swp391.modules.parking.entity.Slot;
@@ -35,6 +37,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -66,6 +69,7 @@ public class ManagerSlotServiceImpl implements ManagerSlotService {
   ZoneRepository zoneRepository;
   TenantRepository tenantRepository;
   ManagerFacilityCacheService managerFacilityCacheService;
+  ParkingSessionRepository parkingSessionRepository;
 
   @Override
   @Transactional(readOnly = true)
@@ -100,11 +104,12 @@ public class ManagerSlotServiceImpl implements ManagerSlotService {
   @Override
   @Transactional
   public SlotResponse createSlot(UUID zoneId, SlotRequest request) {
-    Zone zone = getZoneOrThrow(zoneId);
+    Zone zone = getZoneOrThrowForUpdate(zoneId);
     String code = normalizeCode(request.code());
-    if (slotRepository.existsByZoneIdAndCodeIgnoreCaseAndIsDeletedFalse(zoneId, code)) {
+    if (slotRepository.existsByZoneIdAndCodeIgnoreCase(zoneId, code)) {
       throw new ApiException(ErrorCode.DUPLICATE_RESOURCE, "Slot code already exists");
     }
+    assertCapacityAvailable(zone, slotRepository.countByZoneId(zone.getId()), 1);
 
     Slot slot =
         Slot.builder()
@@ -115,7 +120,6 @@ public class ManagerSlotServiceImpl implements ManagerSlotService {
             .code(code)
             .slotNumber(normalizeSlotNumber(request.slotNumber(), code))
             .status(request.status() == null ? SlotStatus.AVAILABLE : request.status())
-            .isDeleted(false)
             .build();
 
     Slot saved = slotRepository.save(slot);
@@ -128,8 +132,7 @@ public class ManagerSlotServiceImpl implements ManagerSlotService {
   public SlotResponse updateSlot(UUID id, SlotRequest request) {
     Slot slot = getSlotOrThrow(id);
     String code = normalizeCode(request.code());
-    if (slotRepository.existsByZoneIdAndCodeIgnoreCaseAndIdNotAndIsDeletedFalse(
-        slot.getZone().getId(), code, id)) {
+    if (slotRepository.existsByZoneIdAndCodeIgnoreCaseAndIdNot(slot.getZone().getId(), code, id)) {
       throw new ApiException(ErrorCode.DUPLICATE_RESOURCE, "Slot code already exists");
     }
 
@@ -148,8 +151,17 @@ public class ManagerSlotServiceImpl implements ManagerSlotService {
   @Transactional
   public void deleteSlot(UUID id) {
     Slot slot = getSlotOrThrow(id);
-    slot.setDeleted(true);
-    slotRepository.save(slot);
+    if (parkingSessionRepository.existsBySlotIdAndStatus(id, ParkingSessionStatus.ACTIVE)) {
+      throw new ApiException(
+          ErrorCode.INVALID_INPUT,
+          "Cannot delete a slot that is used by an active parking session.");
+    }
+    if (parkingSessionRepository.existsBySlotId(id)) {
+      throw new ApiException(
+          ErrorCode.INVALID_INPUT,
+          "Cannot delete a slot that is linked to parking session history.");
+    }
+    slotRepository.delete(slot);
     evictTopology(slot.getParking().getId());
   }
 
@@ -228,6 +240,7 @@ public class ManagerSlotServiceImpl implements ManagerSlotService {
         parkingIds.add(slot.getParking().getId());
       }
 
+      validateImportCapacity(slots);
       slotRepository.saveAll(slots);
       parkingIds.forEach(this::evictTopology);
       return SlotImportResponse.builder().insertedCount(slots.size()).build();
@@ -286,7 +299,6 @@ public class ManagerSlotServiceImpl implements ManagerSlotService {
     return (root, query, criteriaBuilder) -> {
       List<Predicate> predicates = new ArrayList<>();
       predicates.add(criteriaBuilder.equal(root.get("tenant").get("id"), currentTenantId()));
-      predicates.add(criteriaBuilder.isFalse(root.get("isDeleted")));
 
       if (parkingId != null) {
         predicates.add(criteriaBuilder.equal(root.get("parking").get("id"), parkingId));
@@ -346,7 +358,7 @@ public class ManagerSlotServiceImpl implements ManagerSlotService {
     String duplicateKey = zone.getId() + ":" + normalizedSlotCode.toLowerCase(Locale.ROOT);
     if (!fileDuplicateGuard.add(duplicateKey)
         || slotRepository
-            .findByZoneIdAndCodeIgnoreCaseAndIsDeletedFalse(zone.getId(), normalizedSlotCode)
+            .findByZoneIdAndCodeIgnoreCase(zone.getId(), normalizedSlotCode)
             .isPresent()) {
       throw new ApiException(
           ErrorCode.DUPLICATE_RESOURCE,
@@ -362,7 +374,6 @@ public class ManagerSlotServiceImpl implements ManagerSlotService {
         .slotNumber(
             slotNumber == null || slotNumber.isBlank() ? normalizedSlotCode : slotNumber.trim())
         .status(parseStatus(statusValue, rowNumber))
-        .isDeleted(false)
         .build();
   }
 
@@ -471,14 +482,53 @@ public class ManagerSlotServiceImpl implements ManagerSlotService {
 
   private Slot getSlotOrThrow(UUID id) {
     return slotRepository
-        .findByIdAndTenantIdAndIsDeletedFalse(id, currentTenantId())
+        .findByIdAndTenantId(id, currentTenantId())
         .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Slot not found"));
   }
 
   private Zone getZoneOrThrow(UUID id) {
     return zoneRepository
-        .findByIdAndTenantIdAndIsDeletedFalse(id, currentTenantId())
+        .findByIdAndTenantId(id, currentTenantId())
         .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Zone not found"));
+  }
+
+  private Zone getZoneOrThrowForUpdate(UUID id) {
+    return zoneRepository
+        .findByIdAndTenantIdForUpdate(id, currentTenantId())
+        .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Zone not found"));
+  }
+
+  private void validateImportCapacity(List<Slot> slots) {
+    if (slots.isEmpty()) {
+      return;
+    }
+    Map<UUID, Long> incomingByZone =
+        slots.stream()
+            .collect(Collectors.groupingBy(slot -> slot.getZone().getId(), Collectors.counting()));
+    List<UUID> zoneIds = incomingByZone.keySet().stream().sorted().toList();
+    List<Zone> lockedZones =
+        zoneRepository.findAllByIdInAndTenantIdForUpdate(zoneIds, currentTenantId());
+    if (lockedZones.size() != zoneIds.size()) {
+      throw new ApiException(
+          ErrorCode.RESOURCE_NOT_FOUND, "One or more import zones were not found");
+    }
+    for (Zone zone : lockedZones) {
+      assertCapacityAvailable(
+          zone, slotRepository.countByZoneId(zone.getId()), incomingByZone.get(zone.getId()));
+    }
+  }
+
+  private void assertCapacityAvailable(Zone zone, long existingSlots, long incomingSlots) {
+    long capacity = zone.getCapacity() == null ? 0 : zone.getCapacity();
+    if (existingSlots + incomingSlots > capacity) {
+      throw new ApiException(
+          ErrorCode.INVALID_INPUT,
+          "Zone capacity reached. Capacity: "
+              + capacity
+              + ", existing slots: "
+              + existingSlots
+              + ".");
+    }
   }
 
   private Tenant currentTenantReference() {
@@ -519,7 +569,7 @@ public class ManagerSlotServiceImpl implements ManagerSlotService {
           key,
           ignored ->
               parkingRepository
-                  .findByTenantIdAndCodeIgnoreCaseAndIsDeletedFalse(currentTenantId(), code.trim())
+                  .findByTenantIdAndCodeIgnoreCase(currentTenantId(), code.trim())
                   .orElseThrow(
                       () ->
                           new ApiException(
@@ -533,7 +583,7 @@ public class ManagerSlotServiceImpl implements ManagerSlotService {
           key,
           ignored ->
               floorRepository
-                  .findByParkingIdAndCodeIgnoreCaseAndDeletedFalse(parking.getId(), code.trim())
+                  .findByParkingIdAndCodeIgnoreCase(parking.getId(), code.trim())
                   .orElseThrow(
                       () ->
                           new ApiException(
@@ -547,7 +597,7 @@ public class ManagerSlotServiceImpl implements ManagerSlotService {
           key,
           ignored ->
               zoneRepository
-                  .findByFloorIdAndCodeIgnoreCaseAndIsDeletedFalse(floor.getId(), code.trim())
+                  .findByFloorIdAndCodeIgnoreCase(floor.getId(), code.trim())
                   .orElseThrow(
                       () ->
                           new ApiException(

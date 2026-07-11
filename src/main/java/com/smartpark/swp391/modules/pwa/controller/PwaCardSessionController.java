@@ -78,7 +78,11 @@ public class PwaCardSessionController {
   }
 
   @PostMapping("/{qrToken}/reports/occupied-slot")
-  @Operation(summary = "Report that the assigned slot is occupied by another vehicle")
+  @Operation(
+      summary = "Report that the assigned slot is occupied by another vehicle",
+      description =
+          "Records a pending staff review and reassigns the reporting driver when an eligible"
+              + " replacement slot is available. A penalty is not applied until staff approval.")
   public ResponseEntity<ApiResponse<OccupiedSlotReportResponse>> reportOccupiedSlot(
       @PathVariable String qrToken, @Valid @RequestBody OccupiedSlotReportRequest request) {
     return ResponseEntity.ok(

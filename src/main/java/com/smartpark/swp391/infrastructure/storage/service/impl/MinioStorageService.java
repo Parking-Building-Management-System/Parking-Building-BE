@@ -105,6 +105,14 @@ public class MinioStorageService implements StorageService {
   }
 
   @Override
+  public void deleteObject(UUID tenantId, String objectKey) {
+    requireTenantObjectKey(tenantId, objectKey);
+    AmazonS3 s3 = s3();
+    ensureBucket(s3);
+    s3.deleteObject(properties.bucket(), objectKey);
+  }
+
+  @Override
   public String publicObjectUrl(String objectKey) {
     return null;
   }

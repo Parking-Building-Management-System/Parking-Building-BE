@@ -20,5 +20,7 @@ public interface StorageService {
 
   boolean objectExists(UUID tenantId, String objectKey);
 
+  void deleteObject(UUID tenantId, String objectKey);
+
   String publicObjectUrl(String objectKey);
 }

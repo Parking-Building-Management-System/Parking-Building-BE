@@ -76,7 +76,8 @@ public class ManagerStaffController {
   @PostMapping
   @Operation(
       summary = "Create staff account",
-      description = "Creates a STAFF user in the authenticated manager tenant without binding a device.")
+      description =
+          "Creates a STAFF user in the authenticated manager tenant without binding a device.")
   public ResponseEntity<ApiResponse<ManagerStaffResponse>> createStaff(
       @Valid @RequestBody ManagerStaffCreateRequest request, @AuthenticationPrincipal Jwt jwt) {
     return ok(
@@ -108,7 +109,9 @@ public class ManagerStaffController {
   }
 
   @PatchMapping("/{id}/status")
-  @Operation(summary = "Update staff status", description = "Activates or deactivates a STAFF user.")
+  @Operation(
+      summary = "Update staff status",
+      description = "Activates or deactivates a STAFF user.")
   public ResponseEntity<ApiResponse<ManagerStaffResponse>> updateStatus(
       @PathVariable UUID id,
       @Valid @RequestBody ManagerStaffStatusRequest request,

@@ -73,7 +73,5 @@ public interface DeviceRepository extends JpaRepository<Device, UUID> {
             AND (:status IS NULL OR d.status = :status)
           """)
   Page<Device> findAdminDevices(
-      @Param("tenantId") UUID tenantId,
-      @Param("status") DeviceStatus status,
-      Pageable pageable);
+      @Param("tenantId") UUID tenantId, @Param("status") DeviceStatus status, Pageable pageable);
 }

@@ -48,8 +48,7 @@ public class ManagerKioskServiceImpl implements ManagerKioskService {
 
   @Override
   @Transactional(readOnly = true)
-  public List<ManagerKioskResponse> getKiosks(
-      UUID parkingId, KioskStatus status, KioskType type) {
+  public List<ManagerKioskResponse> getKiosks(UUID parkingId, KioskStatus status, KioskType type) {
     UUID tenantId = currentTenantId();
     if (parkingId != null) {
       assertParking(tenantId, parkingId);
@@ -124,7 +123,9 @@ public class ManagerKioskServiceImpl implements ManagerKioskService {
   @Transactional(readOnly = true)
   public List<ManagerKioskStaffResponse> getStaff(UUID kioskId) {
     Kiosk kiosk = getTenantKiosk(kioskId);
-    return kioskStaffRepository.findActiveByTenantAndKiosk(currentTenantId(), kiosk.getId()).stream()
+    return kioskStaffRepository
+        .findActiveByTenantAndKiosk(currentTenantId(), kiosk.getId())
+        .stream()
         .map(this::toStaffResponse)
         .toList();
   }
@@ -163,7 +164,7 @@ public class ManagerKioskServiceImpl implements ManagerKioskService {
 
   private Parking assertParking(UUID tenantId, UUID parkingId) {
     return parkingRepository
-        .findByIdAndTenantIdAndIsDeletedFalse(parkingId, tenantId)
+        .findByIdAndTenantId(parkingId, tenantId)
         .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Parking not found"));
   }
 

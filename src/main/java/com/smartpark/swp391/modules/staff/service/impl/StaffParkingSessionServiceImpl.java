@@ -94,7 +94,7 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
     Tenant tenant = tenantRepository.getReferenceById(tenantId);
     Parking parking =
         parkingRepository
-            .findByIdAndTenantIdAndIsDeletedFalse(parkingId, tenantId)
+            .findByIdAndTenantId(parkingId, tenantId)
             .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Parking not found"));
 
     RfidCard card =
@@ -191,6 +191,7 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
       throw new ApiException(ErrorCode.INVALID_INPUT, "SESSION_NOT_ACTIVE");
     }
     validateSessionInKioskParking(session, workContext.parkingId());
+    requireNoPendingViolationReview(session);
 
     RfidCard card = session.getRfidCard();
     if (card == null || !card.getCode().equalsIgnoreCase(normalizeCardCode(request.cardCode()))) {
@@ -377,6 +378,7 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
     String message;
     List<PenaltyCase> penaltyCases = unpaidPenaltyCases(session);
     BigDecimal penaltyAmountDue = sumPenaltyAmount(penaltyCases);
+    int pendingViolationReportCount = pendingViolationReportCount(session);
 
     if (session.getPaymentStatus() == SessionPaymentStatus.PAID) {
       if (session.getExitDeadline() != null && !evaluatedAt.isAfter(session.getExitDeadline())) {
@@ -432,6 +434,8 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
             .totalAmountDue(totalAmountDue)
             .penaltyCases(penaltyCases.stream().map(penaltyCaseResponseMapper::toResponse).toList())
             .hasUnpaidPenalties(!penaltyCases.isEmpty())
+            .hasPendingViolationReview(pendingViolationReportCount > 0)
+            .pendingViolationReportCount(pendingViolationReportCount)
             .currency(quote.currency())
             .message(message)
             .build();
@@ -490,6 +494,20 @@ public class StaffParkingSessionServiceImpl implements StaffParkingSessionServic
   private List<PenaltyCase> unpaidPenaltyCases(ParkingSession session) {
     return penaltyCaseRepository.findByTargetSessionAndStatuses(
         session.getTenant().getId(), session.getId(), List.of(PenaltyCaseStatus.APPLIED));
+  }
+
+  private int pendingViolationReportCount(ParkingSession session) {
+    return Math.toIntExact(
+        penaltyCaseRepository.countByTenantIdAndOffenderSessionIdAndStatus(
+            session.getTenant().getId(), session.getId(), PenaltyCaseStatus.REPORTED));
+  }
+
+  private void requireNoPendingViolationReview(ParkingSession session) {
+    if (pendingViolationReportCount(session) > 0) {
+      throw new ApiException(
+          ErrorCode.INVALID_INPUT,
+          "PENDING_VIOLATION_REVIEW_REQUIRED: Review the occupied-slot report before completing exit.");
+    }
   }
 
   private BigDecimal sumPenaltyAmount(List<PenaltyCase> penaltyCases) {

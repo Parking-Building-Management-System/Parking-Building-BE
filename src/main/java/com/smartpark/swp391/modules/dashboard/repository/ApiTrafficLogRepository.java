@@ -66,6 +66,5 @@ public interface ApiTrafficLogRepository extends JpaRepository<ApiTrafficLog, UU
               LIMIT 100
               """,
       nativeQuery = true)
-  List<Object[]> findRecentErrors(
-      @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+  List<Object[]> findRecentErrors(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 }

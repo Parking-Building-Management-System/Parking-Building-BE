@@ -57,7 +57,7 @@ public class ManagerFacilityMapServiceImpl implements ManagerFacilityMapService 
     Floor floor = getFloorOrThrow(floorId);
     List<SlotMapItemResponse> slots =
         slotRepository
-            .findAllByFloorIdAndTenantIdAndIsDeletedFalseOrderByCodeAsc(floorId, currentTenantId())
+            .findAllByFloorIdAndTenantIdOrderByCodeAsc(floorId, currentTenantId())
             .stream()
             .map(this::toSlotMapItemResponse)
             .toList();
@@ -115,13 +115,13 @@ public class ManagerFacilityMapServiceImpl implements ManagerFacilityMapService 
 
   private Floor getFloorOrThrow(UUID id) {
     return floorRepository
-        .findByIdAndTenantIdAndDeletedFalse(id, currentTenantId())
+        .findByIdAndTenantId(id, currentTenantId())
         .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Floor not found"));
   }
 
   private Slot getSlotOrThrow(UUID id) {
     return slotRepository
-        .findByIdAndTenantIdAndIsDeletedFalse(id, currentTenantId())
+        .findByIdAndTenantId(id, currentTenantId())
         .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Slot not found"));
   }
 

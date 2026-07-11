@@ -17,23 +17,21 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface SlotRepository extends JpaRepository<Slot, UUID>, JpaSpecificationExecutor<Slot> {
-  long countByParkingIdAndIsDeletedFalse(UUID parkingId);
+  long countByParkingId(UUID parkingId);
 
-  long countByTenantIdAndIsDeletedFalse(UUID tenantId);
+  long countByTenantId(UUID tenantId);
 
-  long countByZoneIdAndIsDeletedFalse(UUID zoneId);
+  long countByZoneId(UUID zoneId);
 
-  List<Slot> findAllByFloorIdAndTenantIdAndIsDeletedFalseOrderByCodeAsc(
-      UUID floorId, UUID tenantId);
+  List<Slot> findAllByFloorIdAndTenantIdOrderByCodeAsc(UUID floorId, UUID tenantId);
 
-  Optional<Slot> findByZoneIdAndCodeIgnoreCaseAndIsDeletedFalse(UUID zoneId, String code);
+  Optional<Slot> findByZoneIdAndCodeIgnoreCase(UUID zoneId, String code);
 
-  Optional<Slot> findByIdAndTenantIdAndIsDeletedFalse(UUID id, UUID tenantId);
+  Optional<Slot> findByIdAndTenantId(UUID id, UUID tenantId);
 
-  boolean existsByZoneIdAndCodeIgnoreCaseAndIsDeletedFalse(UUID zoneId, String code);
+  boolean existsByZoneIdAndCodeIgnoreCase(UUID zoneId, String code);
 
-  boolean existsByZoneIdAndCodeIgnoreCaseAndIdNotAndIsDeletedFalse(
-      UUID zoneId, String code, UUID id);
+  boolean existsByZoneIdAndCodeIgnoreCaseAndIdNot(UUID zoneId, String code, UUID id);
 
   @Query(
       """
@@ -43,7 +41,6 @@ public interface SlotRepository extends JpaRepository<Slot, UUID>, JpaSpecificat
           JOIN FETCH s.zone z
           LEFT JOIN FETCH s.floor f
           WHERE s.tenant.id = :tenantId
-            AND s.isDeleted = false
           ORDER BY p.name ASC, z.name ASC, s.code ASC
           """)
   List<Slot> findAllForExport(@Param("tenantId") UUID tenantId);
@@ -57,9 +54,6 @@ public interface SlotRepository extends JpaRepository<Slot, UUID>, JpaSpecificat
           JOIN FETCH s.zone z
           LEFT JOIN FETCH s.floor sf
           LEFT JOIN FETCH z.floor zf
-          WHERE s.isDeleted = false
-            AND z.isDeleted = false
-            AND p.isDeleted = false
           ORDER BY t.slug ASC, p.name ASC, COALESCE(sf.displayOrder, zf.displayOrder, 999) ASC,
             COALESCE(sf.name, zf.name, '') ASC, z.name ASC, z.code ASC, s.code ASC
           """)
@@ -78,8 +72,6 @@ public interface SlotRepository extends JpaRepository<Slot, UUID>, JpaSpecificat
           WHERE s.tenant.id = :tenantId
             AND p.id = :parkingId
             AND s.status = :status
-            AND s.isDeleted = false
-            AND z.isDeleted = false
           ORDER BY LOWER(COALESCE(z.name, '')), LOWER(z.code), LOWER(s.code)
           """)
   List<Slot> findFirstAvailableForCheckIn(
@@ -101,8 +93,6 @@ public interface SlotRepository extends JpaRepository<Slot, UUID>, JpaSpecificat
             AND p.id = :parkingId
             AND vt.id = :vehicleTypeId
             AND s.status = :status
-            AND s.isDeleted = false
-            AND z.isDeleted = false
           ORDER BY LOWER(COALESCE(z.name, '')), LOWER(z.code), LOWER(s.code)
           """)
   List<Slot> findFirstAvailableForCheckInByVehicleType(
@@ -125,8 +115,6 @@ public interface SlotRepository extends JpaRepository<Slot, UUID>, JpaSpecificat
             AND p.id = :parkingId
             AND vt.id = :vehicleTypeId
             AND s.status = :status
-            AND s.isDeleted = false
-            AND z.isDeleted = false
             AND s.id <> :excludedSlotId
           ORDER BY LOWER(COALESCE(z.name, '')), LOWER(z.code), LOWER(s.code)
           """)
@@ -143,7 +131,7 @@ public interface SlotRepository extends JpaRepository<Slot, UUID>, JpaSpecificat
       """
           UPDATE Slot s
           SET s.status = :status, s.updatedAt = CURRENT_TIMESTAMP
-          WHERE s.id IN :ids AND s.tenant.id = :tenantId AND s.isDeleted = false
+          WHERE s.id IN :ids AND s.tenant.id = :tenantId
           """)
   int bulkUpdateStatus(
       @Param("tenantId") UUID tenantId,

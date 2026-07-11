@@ -21,11 +21,9 @@ import com.smartpark.swp391.modules.parking.repository.SlotRepository;
 import com.smartpark.swp391.modules.payment.dto.ExistingPaymentIntentResponse;
 import com.smartpark.swp391.modules.payment.service.PwaPaymentService;
 import com.smartpark.swp391.modules.penalty.entity.PenaltyCase;
-import com.smartpark.swp391.modules.penalty.entity.PenaltyRule;
 import com.smartpark.swp391.modules.penalty.enumType.PenaltyCaseStatus;
 import com.smartpark.swp391.modules.penalty.enumType.PenaltyType;
 import com.smartpark.swp391.modules.penalty.repository.PenaltyCaseRepository;
-import com.smartpark.swp391.modules.penalty.service.PenaltyRuleLookupService;
 import com.smartpark.swp391.modules.pricing.dto.PricingQuoteResponse;
 import com.smartpark.swp391.modules.pricing.service.PricingQuoteService;
 import com.smartpark.swp391.modules.pwa.dto.CardActiveSessionResponse;
@@ -36,6 +34,7 @@ import com.smartpark.swp391.modules.pwa.dto.report.PwaReportUploadRequest;
 import com.smartpark.swp391.modules.pwa.dto.report.PwaReportUploadResponse;
 import com.smartpark.swp391.modules.pwa.service.PwaCardSessionService;
 import com.smartpark.swp391.modules.vehicle.entity.VehicleType;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Locale;
 import lombok.AccessLevel;
@@ -56,7 +55,6 @@ public class PwaCardSessionServiceImpl implements PwaCardSessionService {
   StorageService storageService;
   PricingQuoteService pricingQuoteService;
   PwaPaymentService pwaPaymentService;
-  PenaltyRuleLookupService penaltyRuleLookupService;
   PenaltyCaseRepository penaltyCaseRepository;
 
   @Override
@@ -138,10 +136,7 @@ public class PwaCardSessionServiceImpl implements PwaCardSessionService {
 
     Slot oldSlot = victim.getSlot();
     Parking parking = victim.getParking();
-    PenaltyRule rule =
-        penaltyRuleLookupService.requireActiveRule(
-            victim.getTenant().getId(), parking.getId(), PenaltyType.OCCUPIED_ASSIGNED_SLOT);
-
+    String evidenceObjectKey = requireTenantEvidenceObjectKey(victim, request.evidenceImageUrl());
     ParkingSession offender = findOffenderSession(victim, offenderPlate);
     Slot newSlot = findReplacementSlot(victim, oldSlot);
 
@@ -154,11 +149,10 @@ public class PwaCardSessionServiceImpl implements PwaCardSessionService {
         PenaltyCase.builder()
             .tenant(victim.getTenant())
             .parking(parking)
-            .rule(rule)
             .type(PenaltyType.OCCUPIED_ASSIGNED_SLOT)
-            .amount(rule.getAmount())
-            .currency(rule.getCurrency())
-            .status(offender == null ? PenaltyCaseStatus.REPORTED : PenaltyCaseStatus.APPLIED)
+            .amount(BigDecimal.ZERO)
+            .currency("VND")
+            .status(PenaltyCaseStatus.REPORTED)
             .targetSession(offender)
             .victimSession(victim)
             .offenderSession(offender)
@@ -166,7 +160,7 @@ public class PwaCardSessionServiceImpl implements PwaCardSessionService {
             .reassignedSlot(newSlot)
             .targetLicensePlate(offender == null ? null : offender.getLicensePlate())
             .offenderLicensePlate(offenderPlate)
-            .evidenceImageUrl(normalizeOptional(request.evidenceImageUrl()))
+            .evidenceImageUrl(evidenceObjectKey)
             .reportedFromPwa(true)
             .note(normalizeOptional(request.note()))
             .build();
@@ -179,9 +173,8 @@ public class PwaCardSessionServiceImpl implements PwaCardSessionService {
     boolean offenderMatched = offender != null;
     return OccupiedSlotReportResponse.builder()
         .message(
-            offenderMatched
-                ? "Thank you for your report. We recorded the violation and assigned you a new slot."
-                : "Thank you for your report. We recorded the report and assigned you a new slot.")
+            "Your report has been recorded and a new slot has been assigned. Parking staff will"
+                + " verify the violation.")
         .oldSlotId(oldSlot.getId())
         .oldSlotCode(oldSlot.getCode())
         .newSlotId(newSlot.getId())
@@ -404,6 +397,15 @@ public class PwaCardSessionServiceImpl implements PwaCardSessionService {
 
   private String normalizeOptional(String value) {
     return value == null || value.isBlank() ? null : value.trim();
+  }
+
+  private String requireTenantEvidenceObjectKey(ParkingSession victim, String evidenceImageUrl) {
+    String objectKey = normalizeOptional(evidenceImageUrl);
+    String expectedPrefix = "tenants/" + victim.getTenant().getId() + "/";
+    if (objectKey == null || !objectKey.startsWith(expectedPrefix)) {
+      throw new ApiException(ErrorCode.INVALID_INPUT, "INVALID_OCCUPIED_SLOT_EVIDENCE_OBJECT_KEY");
+    }
+    return objectKey;
   }
 
   private record MapDisplay(String url, Long expiresInSeconds) {}

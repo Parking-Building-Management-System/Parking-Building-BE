@@ -65,8 +65,7 @@ public class ManagerRfidCardController {
       @AuthenticationPrincipal Jwt jwt) {
     return ok(
         "/manager/rfid-cards",
-        managerTenantContext.call(
-            jwt, () -> managerRfidCardService.getCards(status, page, size)));
+        managerTenantContext.call(jwt, () -> managerRfidCardService.getCards(status, page, size)));
   }
 
   @PostMapping("/generate")

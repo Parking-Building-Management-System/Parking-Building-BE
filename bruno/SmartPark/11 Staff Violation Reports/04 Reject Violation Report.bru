@@ -1,0 +1,25 @@
+meta {
+  name: Reject Violation Report
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/staff/violation-reports/{{violationReportId}}/reject
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{staffExitToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "note": "No violating vehicle was found in the reported slot."
+  }
+}

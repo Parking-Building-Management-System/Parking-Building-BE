@@ -120,7 +120,8 @@ public class AdminAuditSecurityServiceImpl implements AdminAuditSecurityService 
 
   @Override
   @Transactional(readOnly = true)
-  public PageResponse<AdminDeviceResponse> getDevices(UUID tenantId, String status, int page, int size) {
+  public PageResponse<AdminDeviceResponse> getDevices(
+      UUID tenantId, String status, int page, int size) {
     DeviceStatus deviceStatus = parseDeviceStatus(status);
     Page<Device> result =
         deviceRepository.findAdminDevices(
@@ -141,7 +142,8 @@ public class AdminAuditSecurityServiceImpl implements AdminAuditSecurityService 
     deviceRepository.save(device);
 
     LocalDateTime now = LocalDateTime.now();
-    List<UUID> sessionIds = sessionRepository.findActiveSessionIdsByUserId(device.getUser().getId(), now);
+    List<UUID> sessionIds =
+        sessionRepository.findActiveSessionIdsByUserId(device.getUser().getId(), now);
     int revoked = sessionRepository.revokeAllActiveByUserId(device.getUser().getId(), now);
     evictSessionCaches(sessionIds);
     audit(

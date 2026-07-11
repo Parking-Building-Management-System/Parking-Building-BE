@@ -43,7 +43,7 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
     AdminDashboardStatsResponse response =
         AdminDashboardStatsResponse.builder()
             .activeTenantCount(tenantRepository.countByStatusAndIsDeletedFalse(TenantStatus.ACTIVE))
-            .parkingCount(parkingRepository.countByIsDeletedFalse())
+            .parkingCount(parkingRepository.count())
             .traffic(
                 apiTrafficLogRepository.findTrafficAggregation(from, now, "day").stream()
                     .map(this::toTrafficPoint)
