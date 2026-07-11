@@ -11,40 +11,11 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface PenaltyCaseRepository extends JpaRepository<PenaltyCase, UUID> {
+public interface PenaltyCaseRepository
+    extends JpaRepository<PenaltyCase, UUID>, PenaltyCaseRepositoryCustom {
 
   long countByTenantIdAndOffenderSessionIdAndStatus(
       UUID tenantId, UUID offenderSessionId, PenaltyCaseStatus status);
-
-  @Query(
-      """
-      SELECT pc
-      FROM PenaltyCase pc
-      LEFT JOIN FETCH pc.victimSession victim
-      LEFT JOIN FETCH pc.offenderSession offender
-      LEFT JOIN FETCH pc.reportedSlot reportedSlot
-      LEFT JOIN FETCH pc.reassignedSlot reassignedSlot
-      LEFT JOIN FETCH pc.reviewedByStaff reviewer
-      WHERE pc.tenant.id = :tenantId
-        AND pc.parking.id = :parkingId
-        AND pc.type = com.smartpark.swp391.modules.penalty.enumType.PenaltyType.OCCUPIED_ASSIGNED_SLOT
-        AND pc.reportedFromPwa = true
-        AND (:status IS NULL OR pc.status = :status)
-        AND (
-          :reportedPlate IS NULL
-          OR LOWER(COALESCE(pc.offenderLicensePlate, '')) LIKE LOWER(CONCAT('%', :reportedPlate, '%'))
-        )
-        AND (:fromDate IS NULL OR pc.createdAt >= :fromDate)
-        AND (:toDate IS NULL OR pc.createdAt <= :toDate)
-      ORDER BY pc.createdAt DESC
-      """)
-  List<PenaltyCase> findViolationReports(
-      @Param("tenantId") UUID tenantId,
-      @Param("parkingId") UUID parkingId,
-      @Param("status") PenaltyCaseStatus status,
-      @Param("reportedPlate") String reportedPlate,
-      @Param("fromDate") java.time.LocalDateTime fromDate,
-      @Param("toDate") java.time.LocalDateTime toDate);
 
   @Query(
       """
