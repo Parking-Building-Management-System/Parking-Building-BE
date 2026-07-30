@@ -149,7 +149,6 @@ public class ManagerRfidCardServiceImpl implements ManagerRfidCardService {
         .id(card.getId())
         .code(card.getCode())
         .uid(card.getUid())
-        .qrToken(card.getQrToken())
         .assignedUserId(card.getAssignedUser() == null ? null : card.getAssignedUser().getId())
         .status(card.getStatus())
         .activatedAt(card.getActivatedAt())

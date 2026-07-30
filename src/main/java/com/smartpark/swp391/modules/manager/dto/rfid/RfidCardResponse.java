@@ -10,7 +10,6 @@ public record RfidCardResponse(
     UUID id,
     String code,
     String uid,
-    String qrToken,
     UUID assignedUserId,
     RfidCardStatus status,
     LocalDateTime activatedAt,
