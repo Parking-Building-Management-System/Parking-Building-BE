@@ -152,6 +152,37 @@ class PenaltyCaseRepositoryTest {
     assertThat(reports).extracting(PenaltyCase::getId).containsExactly(reportedCase.getId());
   }
 
+  @Test
+  void pendingViolationCountIncludesOnlyReportedPwaOccupiedSlotCasesInCurrentScope() {
+    saveCase(
+        currentTenant,
+        currentParking,
+        PenaltyType.OCCUPIED_ASSIGNED_SLOT,
+        PenaltyCaseStatus.REPORTED,
+        false);
+    saveCase(
+        currentTenant, currentParking, PenaltyType.LOST_CARD, PenaltyCaseStatus.REPORTED, true);
+    saveCase(
+        currentTenant,
+        currentParking,
+        PenaltyType.OCCUPIED_ASSIGNED_SLOT,
+        PenaltyCaseStatus.REJECTED,
+        true);
+    saveCase(
+        currentTenant,
+        currentParking,
+        PenaltyType.OCCUPIED_ASSIGNED_SLOT,
+        PenaltyCaseStatus.COLLECTED,
+        true);
+    entityManager.flush();
+    entityManager.clear();
+
+    assertThat(
+            penaltyCaseRepository.countPendingViolationReports(
+                currentTenant.getId(), currentParking.getId()))
+        .isEqualTo(1);
+  }
+
   private List<PenaltyCase> findReports(PenaltyCaseStatus status, String search) {
     return penaltyCaseRepository.findViolationReports(
         currentTenant.getId(), currentParking.getId(), status, search, null, null);
@@ -175,6 +206,23 @@ class PenaltyCaseRepositoryTest {
             .build();
     penaltyCase.setCreatedAt(createdAt);
     return penaltyCaseRepository.save(penaltyCase);
+  }
+
+  private PenaltyCase saveCase(
+      Tenant tenant,
+      Parking parking,
+      PenaltyType type,
+      PenaltyCaseStatus status,
+      boolean reportedFromPwa) {
+    return penaltyCaseRepository.save(
+        PenaltyCase.builder()
+            .tenant(tenant)
+            .parking(parking)
+            .type(type)
+            .amount(BigDecimal.ZERO)
+            .status(status)
+            .reportedFromPwa(reportedFromPwa)
+            .build());
   }
 
   private void setCreatedAt(PenaltyCase penaltyCase, LocalDateTime createdAt) {

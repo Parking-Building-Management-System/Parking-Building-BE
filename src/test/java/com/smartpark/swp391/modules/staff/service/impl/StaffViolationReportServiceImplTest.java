@@ -52,6 +52,19 @@ class StaffViolationReportServiceImplTest {
   }
 
   @Test
+  void pendingCountUsesCurrentTenantAndParkingContext() {
+    TestData data = testData();
+    when(staffWorkContextService.requireCurrentResolvedContext()).thenReturn(data.context);
+    when(penaltyCaseRepository.countPendingViolationReports(
+            data.tenant.getId(), data.parking.getId()))
+        .thenReturn(3L);
+
+    var response = service().getPendingCount();
+
+    assertThat(response.pendingCount()).isEqualTo(3);
+  }
+
+  @Test
   void approveChangesPendingReportToAppliedUsingCurrentRuleAmount() {
     TestData data = testData();
     TenantContext.setTenantId(data.tenant.getId());

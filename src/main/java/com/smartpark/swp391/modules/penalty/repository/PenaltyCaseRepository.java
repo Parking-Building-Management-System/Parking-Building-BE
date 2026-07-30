@@ -19,6 +19,19 @@ public interface PenaltyCaseRepository
 
   @Query(
       """
+      SELECT COUNT(pc)
+      FROM PenaltyCase pc
+      WHERE pc.tenant.id = :tenantId
+        AND pc.parking.id = :parkingId
+        AND pc.type = com.smartpark.swp391.modules.penalty.enumType.PenaltyType.OCCUPIED_ASSIGNED_SLOT
+        AND pc.reportedFromPwa = true
+        AND pc.status = com.smartpark.swp391.modules.penalty.enumType.PenaltyCaseStatus.REPORTED
+      """)
+  long countPendingViolationReports(
+      @Param("tenantId") UUID tenantId, @Param("parkingId") UUID parkingId);
+
+  @Query(
+      """
       SELECT pc
       FROM PenaltyCase pc
       LEFT JOIN FETCH pc.rule rule

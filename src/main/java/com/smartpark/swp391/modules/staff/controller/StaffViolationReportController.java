@@ -3,6 +3,7 @@ package com.smartpark.swp391.modules.staff.controller;
 import com.smartpark.swp391.common.exception.ErrorCode;
 import com.smartpark.swp391.common.response.ApiResponse;
 import com.smartpark.swp391.modules.penalty.enumType.PenaltyCaseStatus;
+import com.smartpark.swp391.modules.staff.dto.violation.PendingViolationReportCountResponse;
 import com.smartpark.swp391.modules.staff.dto.violation.ViolationReportApproveRequest;
 import com.smartpark.swp391.modules.staff.dto.violation.ViolationReportRejectRequest;
 import com.smartpark.swp391.modules.staff.dto.violation.ViolationReportResponse;
@@ -45,6 +46,15 @@ public class StaffViolationReportController {
 
   StaffViolationReportService staffViolationReportService;
   StaffTenantContext staffTenantContext;
+
+  @GetMapping("/pending-count")
+  @Operation(summary = "Count occupied-slot reports awaiting review in the current kiosk parking")
+  public ResponseEntity<ApiResponse<PendingViolationReportCountResponse>> getPendingCount(
+      @AuthenticationPrincipal Jwt jwt) {
+    return ok(
+        "/staff/violation-reports/pending-count",
+        staffTenantContext.call(jwt, staffViolationReportService::getPendingCount));
+  }
 
   @GetMapping
   @Operation(summary = "List occupied-slot reports in the current kiosk parking")

@@ -16,6 +16,7 @@ import com.smartpark.swp391.modules.penalty.enumType.PenaltyType;
 import com.smartpark.swp391.modules.penalty.repository.PenaltyCaseRepository;
 import com.smartpark.swp391.modules.penalty.service.PenaltyRuleLookupService;
 import com.smartpark.swp391.modules.staff.dto.StaffResolvedContext;
+import com.smartpark.swp391.modules.staff.dto.violation.PendingViolationReportCountResponse;
 import com.smartpark.swp391.modules.staff.dto.violation.ViolationReportApproveRequest;
 import com.smartpark.swp391.modules.staff.dto.violation.ViolationReportRejectRequest;
 import com.smartpark.swp391.modules.staff.dto.violation.ViolationReportResponse;
@@ -42,6 +43,15 @@ public class StaffViolationReportServiceImpl implements StaffViolationReportServ
   StaffWorkContextService staffWorkContextService;
   UserRepository userRepository;
   StorageService storageService;
+
+  @Override
+  @Transactional(readOnly = true)
+  public PendingViolationReportCountResponse getPendingCount() {
+    StaffResolvedContext context = staffWorkContextService.requireCurrentResolvedContext();
+    return new PendingViolationReportCountResponse(
+        penaltyCaseRepository.countPendingViolationReports(
+            context.tenantId(), context.parkingId()));
+  }
 
   @Override
   @Transactional(readOnly = true)
