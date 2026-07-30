@@ -159,7 +159,6 @@ public class ManagerPricingRuleServiceImpl implements ManagerPricingRuleService 
     rule.setFirstBlockPrice(request.firstBlockPrice());
     rule.setNextBlockMinutes(request.nextBlockMinutes());
     rule.setNextBlockPrice(request.nextBlockPrice());
-    rule.setDailyCapPrice(request.dailyCapPrice());
     rule.setGraceMinutesAfterPayment(request.graceMinutesAfterPayment());
     rule.setStatus(request.status() == null ? PricingRuleStatus.ACTIVE : request.status());
   }
@@ -227,7 +226,6 @@ public class ManagerPricingRuleServiceImpl implements ManagerPricingRuleService 
         .firstBlockPrice(rule.getFirstBlockPrice())
         .nextBlockMinutes(rule.getNextBlockMinutes())
         .nextBlockPrice(rule.getNextBlockPrice())
-        .dailyCapPrice(rule.getDailyCapPrice())
         .graceMinutesAfterPayment(rule.getGraceMinutesAfterPayment())
         .status(rule.getStatus())
         .createdAt(rule.getCreatedAt())

@@ -82,6 +82,23 @@ class PwaCardSessionServiceImplTest {
   }
 
   @Test
+  void checkoutQuoteReturnsFullUncappedAmount() {
+    TestData data = testData();
+    when(rfidCardRepository.findByQrToken("qr")).thenReturn(Optional.of(data.card));
+    when(parkingSessionRepository.findActiveByRfidCardId(
+            data.card.getId(), ParkingSessionStatus.ACTIVE, PageRequest.of(0, 1)))
+        .thenReturn(List.of(data.session));
+    when(pricingQuoteService.quote(any(), any(), any(), any(), any())).thenReturn(quote("75000"));
+    when(pwaPaymentService.paymentProviderAvailable()).thenReturn(true);
+    when(pwaPaymentService.findReusablePendingIntent(data.session.getId(), new BigDecimal("75000")))
+        .thenReturn(Optional.empty());
+
+    var response = service().getCheckoutQuote("qr");
+
+    assertThat(response.amount()).isEqualByComparingTo("75000");
+  }
+
+  @Test
   void checkoutQuoteReflectsPaidSession() {
     TestData data = testData();
     data.session.setPaymentStatus(SessionPaymentStatus.PAID);
@@ -219,6 +236,10 @@ class PwaCardSessionServiceImplTest {
   }
 
   private PricingQuoteResponse quote() {
+    return quote("30000");
+  }
+
+  private PricingQuoteResponse quote(String amount) {
     return PricingQuoteResponse.builder()
         .pricingRuleId(UUID.randomUUID())
         .pricingRuleName("Rule")
@@ -226,7 +247,7 @@ class PwaCardSessionServiceImplTest {
         .quotedAt(LocalDateTime.parse("2026-05-31T10:00:00"))
         .durationMinutes(120)
         .chargeableMinutes(120)
-        .amount(new BigDecimal("30000"))
+        .amount(new BigDecimal(amount))
         .currency("VND")
         .pricingBreakdown(List.of())
         .build();

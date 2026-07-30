@@ -20,7 +20,6 @@ public record ManagerPricingRuleResponse(
     BigDecimal firstBlockPrice,
     Integer nextBlockMinutes,
     BigDecimal nextBlockPrice,
-    BigDecimal dailyCapPrice,
     Integer graceMinutesAfterPayment,
     PricingRuleStatus status,
     LocalDateTime createdAt,

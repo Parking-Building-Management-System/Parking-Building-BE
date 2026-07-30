@@ -26,7 +26,7 @@ class PricingQuoteServiceImplTest {
     var quote =
         service()
             .preview(
-                rule("Free", 15, 60, "20000", 30, "10000", null),
+                rule("Free", 15, 60, "20000", 30, "10000"),
                 LocalDateTime.parse("2026-05-28T10:00:00"),
                 LocalDateTime.parse("2026-05-28T10:10:00"));
 
@@ -40,7 +40,7 @@ class PricingQuoteServiceImplTest {
     var quote =
         service()
             .preview(
-                rule("First", 10, 120, "20000", 60, "10000", null),
+                rule("First", 10, 120, "20000", 60, "10000"),
                 LocalDateTime.parse("2026-05-28T10:00:00"),
                 LocalDateTime.parse("2026-05-28T11:30:00"));
 
@@ -54,7 +54,7 @@ class PricingQuoteServiceImplTest {
     var quote =
         service()
             .preview(
-                rule("Additional", 0, 120, "20000", 60, "10000", null),
+                rule("Additional", 0, 120, "20000", 60, "10000"),
                 LocalDateTime.parse("2026-05-28T10:00:00"),
                 LocalDateTime.parse("2026-05-28T12:35:01"));
 
@@ -65,16 +65,68 @@ class PricingQuoteServiceImplTest {
   }
 
   @Test
-  void dailyCapLimitsAmount() {
+  void oneMinuteChargesTheStartedFirstBlock() {
     var quote =
         service()
             .preview(
-                rule("Cap", 0, 60, "50000", 60, "50000", "100000"),
+                rule("One minute", 0, 60, "5000", 60, "5000"),
                 LocalDateTime.parse("2026-05-28T10:00:00"),
+                LocalDateTime.parse("2026-05-28T10:01:00"));
+
+    assertThat(quote.amount()).isEqualByComparingTo("5000");
+  }
+
+  @Test
+  void longDurationChargesEveryStartedBlock() {
+    var quote =
+        service()
+            .preview(
+                rule("Long stay", 0, 60, "5000", 60, "5000"),
+                LocalDateTime.parse("2026-05-28T00:00:00"),
                 LocalDateTime.parse("2026-05-28T15:00:00"));
 
-    assertThat(quote.amount()).isEqualByComparingTo("100000");
-    assertThat(quote.pricingBreakdown()).extracting("label").contains("Daily cap applied");
+    assertThat(quote.durationMinutes()).isEqualTo(900);
+    assertThat(quote.amount()).isEqualByComparingTo("75000");
+    assertThat(quote.pricingBreakdown())
+        .extracting("label")
+        .containsExactly("First block", "Additional block x 14");
+  }
+
+  @Test
+  void hourlyPricingExamplesUseStartedBlockRoundingWithoutMaximum() {
+    PricingRule rule = rule("Hourly", 0, 60, "5000", 60, "5000");
+
+    assertThat(amountForMinutes(rule, 1)).isEqualByComparingTo("5000");
+    assertThat(amountForMinutes(rule, 60)).isEqualByComparingTo("5000");
+    assertThat(amountForMinutes(rule, 61)).isEqualByComparingTo("10000");
+    assertThat(amountForMinutes(rule, 180)).isEqualByComparingTo("15000");
+    assertThat(amountForMinutes(rule, 900)).isEqualByComparingTo("75000");
+    assertThat(amountForMinutes(rule, 1440)).isEqualByComparingTo("120000");
+  }
+
+  @Test
+  void multiDayDurationChargesEveryStartedBlock() {
+    var quote =
+        service()
+            .preview(
+                rule("Multi-day stay", 0, 60, "5000", 60, "5000"),
+                LocalDateTime.parse("2026-05-28T00:00:00"),
+                LocalDateTime.parse("2026-05-30T00:01:00"));
+
+    assertThat(quote.durationMinutes()).isEqualTo(2881);
+    assertThat(quote.amount()).isEqualByComparingTo("245000");
+  }
+
+  @Test
+  void zeroPriceRuleRemainsFree() {
+    var quote =
+        service()
+            .preview(
+                rule("Zero price", 0, 60, "0", 60, "0"),
+                LocalDateTime.parse("2026-05-28T00:00:00"),
+                LocalDateTime.parse("2026-05-30T00:01:00"));
+
+    assertThat(quote.amount()).isEqualByComparingTo(BigDecimal.ZERO);
   }
 
   @Test
@@ -105,8 +157,8 @@ class PricingQuoteServiceImplTest {
     UUID tenantId = UUID.randomUUID();
     UUID parkingId = UUID.randomUUID();
     UUID vehicleTypeId = UUID.randomUUID();
-    PricingRule parkingRule = rule("Parking specific", 0, 60, "10000", 60, "10000", null);
-    PricingRule defaultRule = rule("Default", 0, 60, "50000", 60, "50000", null);
+    PricingRule parkingRule = rule("Parking specific", 0, 60, "10000", 60, "10000");
+    PricingRule defaultRule = rule("Default", 0, 60, "50000", 60, "50000");
     when(pricingRuleRepository.findActiveParkingRules(tenantId, parkingId, vehicleTypeId))
         .thenReturn(List.of(parkingRule));
 
@@ -128,14 +180,18 @@ class PricingQuoteServiceImplTest {
     return new PricingQuoteServiceImpl(pricingRuleRepository);
   }
 
+  private BigDecimal amountForMinutes(PricingRule rule, long minutes) {
+    LocalDateTime checkInAt = LocalDateTime.parse("2026-05-28T00:00:00");
+    return service().preview(rule, checkInAt, checkInAt.plusMinutes(minutes)).amount();
+  }
+
   private PricingRule rule(
       String name,
       int freeMinutes,
       int firstBlockMinutes,
       String firstBlockPrice,
       int nextBlockMinutes,
-      String nextBlockPrice,
-      String dailyCapPrice) {
+      String nextBlockPrice) {
     PricingRule rule =
         PricingRule.builder()
             .name(name)
@@ -144,7 +200,6 @@ class PricingQuoteServiceImplTest {
             .firstBlockPrice(new BigDecimal(firstBlockPrice))
             .nextBlockMinutes(nextBlockMinutes)
             .nextBlockPrice(new BigDecimal(nextBlockPrice))
-            .dailyCapPrice(dailyCapPrice == null ? null : new BigDecimal(dailyCapPrice))
             .graceMinutesAfterPayment(15)
             .build();
     rule.setId(UUID.randomUUID());

@@ -121,7 +121,6 @@ pricing_rules (
   first_block_price NUMERIC(12,2) NOT NULL,
   next_block_minutes INTEGER NOT NULL,
   next_block_price NUMERIC(12,2) NOT NULL,
-  daily_cap_price NUMERIC(12,2) NULL,
   grace_minutes_after_payment INTEGER NOT NULL DEFAULT 15,
   status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
   is_deleted BOOLEAN NOT NULL DEFAULT false,
@@ -166,8 +165,8 @@ Calculation:
 3. Remaining minutes after free minutes are billed.
 4. First block: charge `first_block_price` for up to `first_block_minutes`.
 5. Next blocks: `ceil(remaining / next_block_minutes) * next_block_price`.
-6. If `daily_cap_price` is configured, cap each 24-hour period to that price.
-7. Overnight has no special rule in MVP; long stays are handled by duration plus daily cap.
+6. Return the complete block-based amount without a maximum charge.
+7. Overnight has no special rule in MVP; long stays continue accumulating block charges.
 8. `grace_minutes_after_payment` is returned for future payment/exit logic but not applied to quote.
 9. Currency is fixed as `VND`.
 
@@ -223,14 +222,13 @@ Response:
     "floorName": "B1",
     "zoneName": "B1 Zone A",
     "slotCode": "A-05",
-    "amount": 40000,
+    "amount": 50000,
     "currency": "VND",
     "pricingRuleId": "33333333-3333-3333-3333-333333333333",
     "pricingRuleName": "Car hourly default",
     "pricingBreakdown": [
       {"label": "First 60 minutes", "minutes": 60, "unitPrice": 20000, "amount": 20000},
-      {"label": "Next 3 blocks x 30 minutes", "minutes": 77, "unitPrice": 10000, "amount": 30000},
-      {"label": "Daily cap", "minutes": 137, "unitPrice": 40000, "amount": -10000}
+      {"label": "Next 3 blocks x 30 minutes", "minutes": 77, "unitPrice": 10000, "amount": 30000}
     ],
     "paymentAvailable": false,
     "nextAction": "PAYMENT_PENDING_IMPLEMENTATION"
@@ -276,7 +274,6 @@ Content-Type: application/json
   "firstBlockPrice": 20000,
   "nextBlockMinutes": 30,
   "nextBlockPrice": 10000,
-  "dailyCapPrice": 150000,
   "graceMinutesAfterPayment": 15,
   "status": "ACTIVE"
 }
@@ -352,7 +349,7 @@ after invoice APIs exist.
 - Session `CANCELLED` or `VIOLATION`: quote should not proceed without a product decision.
 - Clock/timezone: current code uses `LocalDateTime`; MVP should compute with server clock only.
   Later, standardize timestamps to `Instant` or `OffsetDateTime` for payment/webhook correctness.
-- Long duration: use daily cap if configured; otherwise blocks can grow without cap.
+- Long duration: every started next block is charged, so the amount continues to grow.
 - Grace after payment: return config in rule/quote later, but do not apply until payment is
   implemented.
 - Surcharge later: if driver pays then exits after `exit_deadline`, compute surcharge as a separate

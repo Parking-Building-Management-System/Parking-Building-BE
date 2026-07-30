@@ -352,14 +352,14 @@ class StaffParkingSessionExitServiceImplTest {
 
   @Test
   void exitPreviewUnpaidCollectsCash() {
-    stubPreview(data);
+    stubPreview(data, "75000");
 
     var response = service().previewExit(new ExitPreviewRequest(data.card.getCode()));
 
     assertThat(response.exitDecision()).isEqualTo(ExitDecision.COLLECT_CASH);
-    assertThat(response.amountDue()).isEqualByComparingTo("30000");
-    assertThat(response.totalAmount()).isEqualByComparingTo("30000");
-    assertThat(response.totalAmountDue()).isEqualByComparingTo("30000");
+    assertThat(response.amountDue()).isEqualByComparingTo("75000");
+    assertThat(response.totalAmount()).isEqualByComparingTo("75000");
+    assertThat(response.totalAmountDue()).isEqualByComparingTo("75000");
   }
 
   @Test
@@ -438,7 +438,7 @@ class StaffParkingSessionExitServiceImplTest {
 
   @Test
   void completeCashUnpaidCompletesSession() {
-    stubComplete(data);
+    stubComplete(data, "75000");
 
     var response =
         service()
@@ -447,12 +447,12 @@ class StaffParkingSessionExitServiceImplTest {
                     data.session.getId(),
                     data.card.getCode(),
                     ExitPaymentMode.CASH,
-                    new BigDecimal("30000"),
+                    new BigDecimal("75000"),
                     null));
 
     assertThat(response.status()).isEqualTo(ParkingSessionStatus.COMPLETED);
     assertThat(data.session.getPaymentStatus()).isEqualTo(SessionPaymentStatus.CASH_COLLECTED);
-    assertThat(data.session.getTotalAmount()).isEqualByComparingTo("30000");
+    assertThat(data.session.getTotalAmount()).isEqualByComparingTo("75000");
     assertThat(data.slot.getStatus()).isEqualTo(SlotStatus.AVAILABLE);
 
     ArgumentCaptor<List<StaffCashLedgerEntry>> entriesCaptor = ledgerEntriesCaptor();
@@ -460,7 +460,7 @@ class StaffParkingSessionExitServiceImplTest {
     assertThat(entriesCaptor.getValue()).hasSize(1);
     assertThat(entriesCaptor.getValue().getFirst().type())
         .isEqualTo(StaffCashTransactionType.PARKING_CASH);
-    assertThat(entriesCaptor.getValue().getFirst().amount()).isEqualByComparingTo("30000");
+    assertThat(entriesCaptor.getValue().getFirst().amount()).isEqualByComparingTo("75000");
   }
 
   @Test
@@ -659,6 +659,21 @@ class StaffParkingSessionExitServiceImplTest {
     stubPreview(data, List.of());
   }
 
+  private void stubPreview(TestData data, String amount) {
+    when(staffWorkContextService.requireCurrentContext())
+        .thenReturn(workContext(data.parking.getId()));
+    when(rfidCardRepository.findByTenantIdAndCodeIgnoreCase(
+            data.tenant.getId(), data.card.getCode()))
+        .thenReturn(Optional.of(data.card));
+    when(parkingSessionRepository.findActiveDetailByTenantAndRfidCardId(
+            data.tenant.getId(),
+            data.card.getId(),
+            ParkingSessionStatus.ACTIVE,
+            PageRequest.of(0, 1)))
+        .thenReturn(List.of(data.session));
+    stubQuote(data, List.of(), amount);
+  }
+
   private void stubPreview(TestData data, List<PenaltyCase> penaltyCases) {
     when(staffWorkContextService.requireCurrentContext())
         .thenReturn(workContext(data.parking.getId()));
@@ -678,6 +693,15 @@ class StaffParkingSessionExitServiceImplTest {
     stubComplete(data, List.of());
   }
 
+  private void stubComplete(TestData data, String amount) {
+    when(staffWorkContextService.requireCurrentResolvedContext())
+        .thenReturn(resolvedWorkContext(data.parking.getId()));
+    when(parkingSessionRepository.findDetailByTenantIdAndId(
+            data.tenant.getId(), data.session.getId()))
+        .thenReturn(Optional.of(data.session));
+    stubQuote(data, List.of(), amount);
+  }
+
   private void stubComplete(TestData data, List<PenaltyCase> penaltyCases) {
     when(staffWorkContextService.requireCurrentResolvedContext())
         .thenReturn(resolvedWorkContext(data.parking.getId()));
@@ -687,18 +711,18 @@ class StaffParkingSessionExitServiceImplTest {
     stubQuote(data, penaltyCases);
   }
 
-  private void stubQuote(TestData data) {
-    stubQuote(data, List.of());
+  private void stubQuote(TestData data, List<PenaltyCase> penaltyCases) {
+    stubQuote(data, penaltyCases, "30000");
   }
 
-  private void stubQuote(TestData data, List<PenaltyCase> penaltyCases) {
+  private void stubQuote(TestData data, List<PenaltyCase> penaltyCases, String amount) {
     when(pricingQuoteService.quote(
             eq(data.tenant.getId()),
             eq(data.parking.getId()),
             eq(data.vehicleType.getId()),
             eq(data.session.getCheckInAt()),
             any(LocalDateTime.class)))
-        .thenReturn(quote(data.rule.getId()));
+        .thenReturn(quote(data.rule.getId(), amount));
     when(pricingRuleRepository.findById(data.rule.getId())).thenReturn(Optional.of(data.rule));
     when(penaltyCaseRepository.findByTargetSessionAndStatuses(
             data.tenant.getId(), data.session.getId(), List.of(PenaltyCaseStatus.APPLIED)))
@@ -762,7 +786,7 @@ class StaffParkingSessionExitServiceImplTest {
     return ArgumentCaptor.forClass(List.class);
   }
 
-  private PricingQuoteResponse quote(UUID ruleId) {
+  private PricingQuoteResponse quote(UUID ruleId, String amount) {
     return PricingQuoteResponse.builder()
         .pricingRuleId(ruleId)
         .pricingRuleName("Rule")
@@ -770,7 +794,7 @@ class StaffParkingSessionExitServiceImplTest {
         .quotedAt(LocalDateTime.now())
         .durationMinutes(120)
         .chargeableMinutes(120)
-        .amount(new BigDecimal("30000"))
+        .amount(new BigDecimal(amount))
         .currency("VND")
         .pricingBreakdown(List.of())
         .build();

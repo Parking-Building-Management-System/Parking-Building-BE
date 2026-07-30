@@ -60,9 +60,6 @@ public class PricingRule extends TenantScopedEntity {
   @Column(name = "next_block_price", nullable = false, precision = 12, scale = 2)
   private BigDecimal nextBlockPrice;
 
-  @Column(name = "daily_cap_price", precision = 12, scale = 2)
-  private BigDecimal dailyCapPrice;
-
   @Column(name = "grace_minutes_after_payment", nullable = false)
   @Builder.Default
   private Integer graceMinutesAfterPayment = 15;

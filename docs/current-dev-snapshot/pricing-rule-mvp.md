@@ -19,7 +19,6 @@ Key fields:
 - `first_block_price`
 - `next_block_minutes`
 - `next_block_price`
-- `daily_cap_price`
 - `grace_minutes_after_payment`
 - `status`: `ACTIVE` or `INACTIVE`
 - `is_deleted`: soft delete flag
@@ -44,7 +43,7 @@ Active uniqueness:
 3. If chargeable minutes are zero, amount is `0`.
 4. First block charges `firstBlockPrice` for up to `firstBlockMinutes`.
 5. Remaining minutes charge `ceil(remaining / nextBlockMinutes) * nextBlockPrice`.
-6. If `dailyCapPrice` is configured, final amount is capped to it.
+6. Return the complete block-based amount without a maximum charge.
 7. Currency is fixed to `VND`.
 
 ## Manager API
@@ -73,7 +72,6 @@ Create/update request:
   "firstBlockPrice": 20000,
   "nextBlockMinutes": 60,
   "nextBlockPrice": 10000,
-  "dailyCapPrice": 100000,
   "graceMinutesAfterPayment": 15,
   "status": "ACTIVE"
 }
@@ -131,9 +129,9 @@ Preview response result:
 Migration `V20260531110000__add_pricing_rules.sql` seeds deterministic parking-specific rules for
 the existing Vincom, FPT, and Bcons demo parkings and vehicle types:
 
-- `CAR`: first 120 minutes 20,000 VND, next 60 minutes 10,000 VND, daily cap 100,000 VND.
-- `ELECTRIC_CAR`: first 120 minutes 25,000 VND, next 60 minutes 12,000 VND, daily cap 120,000 VND.
-- `MOTORBIKE`: first 240 minutes 5,000 VND, next 120 minutes 5,000 VND, daily cap 30,000 VND.
+- `CAR`: first 120 minutes 20,000 VND, next 60 minutes 10,000 VND.
+- `ELECTRIC_CAR`: first 120 minutes 25,000 VND, next 60 minutes 12,000 VND.
+- `MOTORBIKE`: first 240 minutes 5,000 VND, next 120 minutes 5,000 VND.
 
 Seed inserts only when no active non-deleted rule exists for the same tenant, parking, and vehicle
 type.
@@ -143,7 +141,7 @@ type.
 - No zone/floor-specific pricing yet.
 - No day/night, holiday, overnight, subscription, or penalty pricing yet.
 - No invoice/payment mutation.
-- Daily cap is a simple quote cap for the current MVP calculation.
+- Long stays continue accumulating started next-block charges without a maximum.
 - Timestamps follow the backend's existing `LocalDateTime` persistence model.
 
 ## Future Phases

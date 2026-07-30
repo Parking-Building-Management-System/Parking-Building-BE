@@ -73,7 +73,6 @@ Use a production-style CRUD page similar to Facility and Staff pages:
   - free minutes
   - first block
   - next block
-  - daily cap
   - grace after payment
   - status
   - updated time
@@ -92,7 +91,6 @@ Use a production-style CRUD page similar to Facility and Staff pages:
   - `firstBlockPrice`
   - `nextBlockMinutes`
   - `nextBlockPrice`
-  - `dailyCapPrice`
   - `graceMinutesAfterPayment`
   - `status`
 - Validation:
@@ -100,7 +98,6 @@ Use a production-style CRUD page similar to Facility and Staff pages:
   - minute fields are integers >= 0
   - price fields are integers or decimals >= 0 based on backend money convention
   - next block requires both minutes and price
-  - daily cap can be blank/null, otherwise >= first block price
 
 ### Preview Calculator
 
@@ -117,7 +114,6 @@ Embed a side panel or modal on Time Rules:
   - free minutes applied
   - first block charge
   - next block count/charge
-  - daily cap applied flag
   - grace-after-payment note
   - rule version/name used
 - Call `POST /manager/pricing/rules/{id}/preview`.
@@ -129,7 +125,7 @@ Keep this intentionally compact:
 
 - Filters: parking and status.
 - Table grouped by parking, with vehicle types as rows.
-- Columns: vehicle type, active rule, free minutes, first block price, next block price, daily cap, status.
+- Columns: vehicle type, active rule, free minutes, first block price, next block price, grace, status.
 - Actions: view/edit rule, open preview.
 - Do not build a complex spreadsheet editor in Flow 2A; reuse the Time Rules create/edit modal or route to Time Rules.
 
@@ -218,7 +214,6 @@ Suggested rule response fields:
 - `firstBlockPrice`
 - `nextBlockMinutes`
 - `nextBlockPrice`
-- `dailyCapPrice`
 - `graceMinutesAfterPayment`
 - `status`
 - `createdAt`
@@ -238,7 +233,6 @@ Suggested preview response fields:
 - `durationMinutes`
 - `chargeableMinutes`
 - `freeMinutesApplied`
-- `dailyCapApplied`
 - `ruleId`
 - `ruleName`
 - `breakdown`: array of `{ label, minutes, quantity, unitPrice, amount }`

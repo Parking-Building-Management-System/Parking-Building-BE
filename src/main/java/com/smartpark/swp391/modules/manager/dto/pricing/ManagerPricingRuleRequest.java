@@ -18,6 +18,5 @@ public record ManagerPricingRuleRequest(
     @NotNull @DecimalMin("0.00") BigDecimal firstBlockPrice,
     @NotNull @Min(1) Integer nextBlockMinutes,
     @NotNull @DecimalMin("0.00") BigDecimal nextBlockPrice,
-    @DecimalMin("0.00") BigDecimal dailyCapPrice,
     @NotNull @Min(0) Integer graceMinutesAfterPayment,
     PricingRuleStatus status) {}

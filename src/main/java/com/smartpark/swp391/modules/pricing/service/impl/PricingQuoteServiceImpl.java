@@ -118,18 +118,6 @@ public class PricingQuoteServiceImpl implements PricingQuoteService {
               .build());
     }
 
-    if (rule.getDailyCapPrice() != null && amount.compareTo(rule.getDailyCapPrice()) > 0) {
-      BigDecimal adjustment = rule.getDailyCapPrice().subtract(amount);
-      amount = rule.getDailyCapPrice();
-      breakdown.add(
-          PricingBreakdownItemResponse.builder()
-              .label("Daily cap applied")
-              .minutes(durationMinutes)
-              .unitPrice(rule.getDailyCapPrice())
-              .amount(adjustment)
-              .build());
-    }
-
     return PricingQuoteResponse.builder()
         .pricingRuleId(rule.getId())
         .pricingRuleName(rule.getName())
@@ -173,9 +161,6 @@ public class PricingQuoteServiceImpl implements PricingQuoteService {
     }
     if (rule.getNextBlockPrice() == null || rule.getNextBlockPrice().signum() < 0) {
       throw new ApiException(ErrorCode.INVALID_INPUT, "nextBlockPrice must be >= 0");
-    }
-    if (rule.getDailyCapPrice() != null && rule.getDailyCapPrice().signum() < 0) {
-      throw new ApiException(ErrorCode.INVALID_INPUT, "dailyCapPrice must be >= 0");
     }
     if (rule.getGraceMinutesAfterPayment() == null || rule.getGraceMinutesAfterPayment() < 0) {
       throw new ApiException(ErrorCode.INVALID_INPUT, "graceMinutesAfterPayment must be >= 0");

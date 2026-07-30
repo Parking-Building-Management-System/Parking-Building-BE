@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartpark.swp391.common.exception.ApiException;
 import com.smartpark.swp391.infrastructure.payment.payos.PayosClient;
+import com.smartpark.swp391.infrastructure.payment.payos.PayosCreatePaymentLinkRequest;
 import com.smartpark.swp391.infrastructure.payment.payos.PayosCreatePaymentLinkResponse;
 import com.smartpark.swp391.infrastructure.payment.payos.PayosProperties;
 import com.smartpark.swp391.modules.identity.entity.Tenant;
@@ -36,6 +37,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
@@ -54,7 +56,7 @@ class PwaPaymentServiceImplTest {
   @Test
   void paymentIntentCreationReturnsCheckoutUrlAndOrderCode() {
     TestData data = testData();
-    PricingQuoteResponse quote = quote(data.rule.getId(), "30000");
+    PricingQuoteResponse quote = quote(data.rule.getId(), "75000");
     when(rfidCardRepository.findByQrToken("qr")).thenReturn(Optional.of(data.card));
     when(parkingSessionRepository.findActiveByRfidCardId(
             data.card.getId(), ParkingSessionStatus.ACTIVE, PageRequest.of(0, 1)))
@@ -82,6 +84,16 @@ class PwaPaymentServiceImplTest {
     assertThat(response.orderCode()).isEqualTo(202605310001L);
     assertThat(response.checkoutUrl()).isEqualTo("https://pay.payos.vn/x");
     assertThat(response.status()).isEqualTo(PaymentIntentStatus.PENDING);
+
+    ArgumentCaptor<PayosCreatePaymentLinkRequest> providerRequestCaptor =
+        ArgumentCaptor.forClass(PayosCreatePaymentLinkRequest.class);
+    verify(payosClient).createPaymentLink(providerRequestCaptor.capture());
+    assertThat(providerRequestCaptor.getValue().amount()).isEqualTo(75000L);
+    assertThat(providerRequestCaptor.getValue().items().getFirst().price()).isEqualTo(75000L);
+
+    ArgumentCaptor<PaymentIntent> intentCaptor = ArgumentCaptor.forClass(PaymentIntent.class);
+    verify(paymentIntentRepository).save(intentCaptor.capture());
+    assertThat(intentCaptor.getValue().getAmount()).isEqualByComparingTo("75000");
   }
 
   @Test

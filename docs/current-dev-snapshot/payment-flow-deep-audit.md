@@ -24,7 +24,7 @@ Below is the complete inventory of all endpoints participating in the payment, c
 * **HTTP Method + Path**: `POST /manager/pricing/rules`
 * **Auth Role**: `ROLE_PARKING_MANAGER` (Bearer JWT Auth)
 * **Controller Class**: `ManagerPricingRuleController`
-* **Request DTO**: `ManagerPricingRuleRequest` (fields: `name`, `parkingId` [optional], `vehicleTypeId`, `freeMinutes`, `firstBlockMinutes`, `firstBlockPrice`, `nextBlockMinutes`, `nextBlockPrice`, `dailyCapPrice` [optional], `graceMinutesAfterPayment`, `status`)
+* **Request DTO**: `ManagerPricingRuleRequest` (fields: `name`, `parkingId` [optional], `vehicleTypeId`, `freeMinutes`, `firstBlockMinutes`, `firstBlockPrice`, `nextBlockMinutes`, `nextBlockPrice`, `graceMinutesAfterPayment`, `status`)
 * **Response DTO**: `ApiResponse<ManagerPricingRuleResponse>`
 * **Service Called**: `ManagerPricingRuleService.createRule`
 * **Repository / DB Tables Touched**: `pricing_rules` (Insert), `parkings` (Read reference), `vehicle_types` (Read reference), `tenants` (Read reference)
@@ -250,7 +250,7 @@ Managers define pricing plans based on target **Parking Buildings** and **Vehicl
   2. Free minutes (`freeMinutes`) are subtracted from the total duration.
   3. If remaining duration is > 0, the first block price (`firstBlockPrice`) is charged for the first block interval (`firstBlockMinutes`).
   4. If further time remains, it is divided into subsequent block intervals (`nextBlockMinutes`), each costing the `nextBlockPrice`.
-  5. If the calculated fee exceeds the daily cap (`dailyCapPrice`), it is capped at the daily cap.
+  5. The complete block-based fee is returned without a maximum charge.
 * The response exposes a `nextAction` field to instruct the PWA (e.g., `CREATE_PAYMENT_INTENT` if unpaid, or `EXIT_WITHIN_GRACE_PERIOD` if already paid online).
 
 ### 5. Create PayOS Payment Intent
@@ -313,7 +313,6 @@ Stores the pricing structures configured by managers.
 * **`first_block_price`** (`NUMERIC(12,2)`, NOT NULL): Fee charged for the first block.
 * **`next_block_minutes`** (`INTEGER`, NOT NULL): Duration of subsequent billing intervals.
 * **`next_block_price`** (`NUMERIC(12,2)`, NOT NULL): Fee charged for each subsequent block.
-* **`daily_cap_price`** (`NUMERIC(12,2)`, NULLABLE): Maximum fee charged per 24 hours.
 * **`grace_minutes_after_payment`** (`INTEGER`, NOT NULL): Grace period allotted after online checkout before surcharges apply.
 * **`status`** (`VARCHAR(20)`, NOT NULL): Status of the rule (`ACTIVE` or `INACTIVE`).
 * **`is_deleted`** (`BOOLEAN`, NOT NULL): Soft-deletion flag.
