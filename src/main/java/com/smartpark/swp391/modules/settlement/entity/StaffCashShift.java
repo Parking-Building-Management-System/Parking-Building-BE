@@ -15,6 +15,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -44,6 +45,15 @@ public class StaffCashShift extends TenantScopedEntity {
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "staff_id", nullable = false)
   private User staff;
+
+  @Column(name = "staff_id", nullable = false, insertable = false, updatable = false)
+  private UUID staffId;
+
+  @Column(name = "staff_name_snapshot", nullable = false, length = 255)
+  private String staffNameSnapshot;
+
+  @Column(name = "staff_username_snapshot", nullable = false, length = 255)
+  private String staffUsernameSnapshot;
 
   @Column(name = "opened_at", nullable = false)
   private LocalDateTime openedAt;

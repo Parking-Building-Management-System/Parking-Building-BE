@@ -97,4 +97,17 @@ public interface KioskStaffRepository extends JpaRepository<KioskStaff, UUID> {
       @Param("tenantId") UUID tenantId,
       @Param("kioskId") UUID kioskId,
       @Param("staffId") UUID staffId);
+
+  @Modifying
+  @Query(
+      """
+          UPDATE KioskStaff ks
+          SET ks.active = false,
+              ks.updatedAt = CURRENT_TIMESTAMP
+          WHERE ks.tenant.id = :tenantId
+            AND ks.staffUser.id = :staffId
+            AND ks.active = true
+          """)
+  int deactivateActiveAssignmentsForStaff(
+      @Param("tenantId") UUID tenantId, @Param("staffId") UUID staffId);
 }

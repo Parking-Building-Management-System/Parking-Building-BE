@@ -35,6 +35,6 @@ public interface StaffCashShiftRepository
   Optional<StaffCashShift> findOpenForStaffForUpdate(
       @Param("tenantId") UUID tenantId, @Param("staffId") UUID staffId);
 
-  @EntityGraph(attributePaths = {"parking", "kiosk", "staff"})
+  @EntityGraph(attributePaths = {"parking", "kiosk"})
   Optional<StaffCashShift> findByTenantIdAndId(UUID tenantId, UUID id);
 }

@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.smartpark.swp391.common.exception.ApiException;
 import com.smartpark.swp391.modules.identity.entity.Tenant;
 import com.smartpark.swp391.modules.identity.entity.User;
+import com.smartpark.swp391.modules.identity.repository.UserRepository;
 import com.smartpark.swp391.modules.operation.entity.Kiosk;
 import com.smartpark.swp391.modules.operation.enumType.KioskType;
 import com.smartpark.swp391.modules.parking.entity.Parking;
@@ -38,6 +39,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class StaffCashLedgerServiceImplTest {
 
+  @Mock UserRepository userRepository;
   @Mock StaffCashShiftRepository staffCashShiftRepository;
   @Mock StaffCashTransactionRepository staffCashTransactionRepository;
   @Mock EntityManager entityManager;
@@ -51,6 +53,7 @@ class StaffCashLedgerServiceImplTest {
 
   @Test
   void noOpenShiftAutoOpensAndWritesParkingCash() {
+    stubActiveStaffLock();
     when(staffCashShiftRepository.findOpenForStaffForUpdate(
             data.tenant.getId(), data.staff.getId()))
         .thenReturn(Optional.empty());
@@ -104,6 +107,7 @@ class StaffCashLedgerServiceImplTest {
   @Test
   void closedShiftCannotAcceptTransactions() {
     StaffCashShift closedShift = shift(StaffCashShiftStatus.CLOSED);
+    stubActiveStaffLock();
     when(staffCashShiftRepository.findOpenForStaffForUpdate(
             data.tenant.getId(), data.staff.getId()))
         .thenReturn(Optional.of(closedShift));
@@ -127,14 +131,19 @@ class StaffCashLedgerServiceImplTest {
 
   private StaffCashLedgerServiceImpl service() {
     return new StaffCashLedgerServiceImpl(
-        staffCashShiftRepository, staffCashTransactionRepository, entityManager);
+        userRepository, staffCashShiftRepository, staffCashTransactionRepository, entityManager);
   }
 
   private void stubReferences() {
     when(entityManager.getReference(Tenant.class, data.tenant.getId())).thenReturn(data.tenant);
-    when(entityManager.getReference(User.class, data.staff.getId())).thenReturn(data.staff);
     when(entityManager.getReference(Parking.class, data.parking.getId())).thenReturn(data.parking);
     when(entityManager.getReference(Kiosk.class, data.kiosk.getId())).thenReturn(data.kiosk);
+  }
+
+  private void stubActiveStaffLock() {
+    when(userRepository.findTenantUserByIdAndRoleForUpdate(
+            data.staff.getId(), data.tenant.getId(), "STAFF"))
+        .thenReturn(Optional.of(data.staff));
   }
 
   private StaffCashShift shift(StaffCashShiftStatus status) {

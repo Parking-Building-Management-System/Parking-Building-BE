@@ -4,6 +4,8 @@ import com.smartpark.swp391.common.exception.ApiException;
 import com.smartpark.swp391.common.exception.ErrorCode;
 import com.smartpark.swp391.modules.identity.entity.Tenant;
 import com.smartpark.swp391.modules.identity.entity.User;
+import com.smartpark.swp391.modules.identity.enumType.UserStatus;
+import com.smartpark.swp391.modules.identity.repository.UserRepository;
 import com.smartpark.swp391.modules.operation.entity.Kiosk;
 import com.smartpark.swp391.modules.parking.entity.Parking;
 import com.smartpark.swp391.modules.settlement.entity.StaffCashShift;
@@ -29,6 +31,9 @@ import org.springframework.transaction.annotation.Transactional;
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 public class StaffCashLedgerServiceImpl implements StaffCashLedgerService {
 
+  private static final String STAFF_ROLE = "STAFF";
+
+  UserRepository userRepository;
   StaffCashShiftRepository staffCashShiftRepository;
   StaffCashTransactionRepository staffCashTransactionRepository;
   EntityManager entityManager;
@@ -43,7 +48,8 @@ public class StaffCashLedgerServiceImpl implements StaffCashLedgerService {
       return;
     }
 
-    StaffCashShift shift = getOrAutoOpenShift(context);
+    User staff = requireActiveStaffForUpdate(context);
+    StaffCashShift shift = getOrAutoOpenShift(context, staff);
     if (shift.getStatus() != StaffCashShiftStatus.OPEN) {
       throw new ApiException(ErrorCode.INVALID_INPUT, "CLOSED_SHIFT_CANNOT_ACCEPT_CASH");
     }
@@ -68,16 +74,18 @@ public class StaffCashLedgerServiceImpl implements StaffCashLedgerService {
     return entry.amount().signum() > 0;
   }
 
-  private StaffCashShift getOrAutoOpenShift(StaffResolvedContext context) {
+  private StaffCashShift getOrAutoOpenShift(StaffResolvedContext context, User staff) {
     return staffCashShiftRepository
         .findOpenForStaffForUpdate(context.tenantId(), context.staffId())
-        .orElseGet(() -> staffCashShiftRepository.save(newAutoOpenedShift(context)));
+        .orElseGet(() -> staffCashShiftRepository.save(newAutoOpenedShift(context, staff)));
   }
 
-  private StaffCashShift newAutoOpenedShift(StaffResolvedContext context) {
+  private StaffCashShift newAutoOpenedShift(StaffResolvedContext context, User staff) {
     return StaffCashShift.builder()
         .tenant(entityManager.getReference(Tenant.class, context.tenantId()))
-        .staff(entityManager.getReference(User.class, context.staffId()))
+        .staff(staff)
+        .staffNameSnapshot(staff.getFullName())
+        .staffUsernameSnapshot(staff.getUsername())
         .parking(entityManager.getReference(Parking.class, context.parkingId()))
         .kiosk(entityManager.getReference(Kiosk.class, context.kioskId()))
         .openedAt(LocalDateTime.now())
@@ -91,6 +99,17 @@ public class StaffCashLedgerServiceImpl implements StaffCashLedgerService {
         .lostCardCashAmount(BigDecimal.ZERO)
         .transactionCount(0)
         .build();
+  }
+
+  private User requireActiveStaffForUpdate(StaffResolvedContext context) {
+    User staff =
+        userRepository
+            .findTenantUserByIdAndRoleForUpdate(context.staffId(), context.tenantId(), STAFF_ROLE)
+            .orElseThrow(() -> new ApiException(ErrorCode.FORBIDDEN_ACTION));
+    if (staff.getStatus() != UserStatus.ACTIVE) {
+      throw new ApiException(ErrorCode.FORBIDDEN_ACTION);
+    }
+    return staff;
   }
 
   private void requireShiftMatchesContext(StaffCashShift shift, StaffResolvedContext context) {

@@ -4,6 +4,8 @@ import com.smartpark.swp391.common.exception.ApiException;
 import com.smartpark.swp391.common.exception.ErrorCode;
 import com.smartpark.swp391.modules.identity.entity.Tenant;
 import com.smartpark.swp391.modules.identity.entity.User;
+import com.smartpark.swp391.modules.identity.enumType.UserStatus;
+import com.smartpark.swp391.modules.identity.repository.UserRepository;
 import com.smartpark.swp391.modules.operation.entity.Kiosk;
 import com.smartpark.swp391.modules.parking.entity.Parking;
 import com.smartpark.swp391.modules.payment.enumType.PaymentIntentStatus;
@@ -40,7 +42,10 @@ import org.springframework.transaction.annotation.Transactional;
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 public class StaffCashShiftServiceImpl implements StaffCashShiftService {
 
+  private static final String STAFF_ROLE = "STAFF";
+
   StaffWorkContextService staffWorkContextService;
+  UserRepository userRepository;
   StaffCashShiftRepository staffCashShiftRepository;
   StaffCashTransactionRepository staffCashTransactionRepository;
   PaymentIntentRepository paymentIntentRepository;
@@ -51,11 +56,12 @@ public class StaffCashShiftServiceImpl implements StaffCashShiftService {
   @Transactional
   public StaffCashShiftResponse startShift() {
     StaffResolvedContext context = staffWorkContextService.requireCurrentResolvedContext();
+    User staff = requireActiveStaffForUpdate(context);
     return staffCashShiftRepository
         .findFirstByTenantIdAndStaffIdAndStatusOrderByOpenedAtDesc(
             context.tenantId(), context.staffId(), StaffCashShiftStatus.OPEN)
         .map(mapper::toShiftResponse)
-        .orElseGet(() -> mapper.toShiftResponse(createOpenShift(context, null)));
+        .orElseGet(() -> mapper.toShiftResponse(createOpenShift(context, null, staff)));
   }
 
   @Override
@@ -134,12 +140,14 @@ public class StaffCashShiftServiceImpl implements StaffCashShiftService {
     return mapper.toShiftResponse(staffCashShiftRepository.save(shift));
   }
 
-  private StaffCashShift createOpenShift(StaffResolvedContext context, String note) {
+  private StaffCashShift createOpenShift(StaffResolvedContext context, String note, User staff) {
     try {
       return staffCashShiftRepository.save(
           StaffCashShift.builder()
               .tenant(entityManager.getReference(Tenant.class, context.tenantId()))
-              .staff(entityManager.getReference(User.class, context.staffId()))
+              .staff(staff)
+              .staffNameSnapshot(staff.getFullName())
+              .staffUsernameSnapshot(staff.getUsername())
               .parking(entityManager.getReference(Parking.class, context.parkingId()))
               .kiosk(entityManager.getReference(Kiosk.class, context.kioskId()))
               .openedAt(LocalDateTime.now())
@@ -159,6 +167,17 @@ public class StaffCashShiftServiceImpl implements StaffCashShiftService {
               context.tenantId(), context.staffId(), StaffCashShiftStatus.OPEN)
           .orElseThrow(() -> e);
     }
+  }
+
+  private User requireActiveStaffForUpdate(StaffResolvedContext context) {
+    User staff =
+        userRepository
+            .findTenantUserByIdAndRoleForUpdate(context.staffId(), context.tenantId(), STAFF_ROLE)
+            .orElseThrow(() -> new ApiException(ErrorCode.FORBIDDEN_ACTION));
+    if (staff.getStatus() != UserStatus.ACTIVE) {
+      throw new ApiException(ErrorCode.FORBIDDEN_ACTION);
+    }
+    return staff;
   }
 
   private StaffCashShift requireOpenShift(StaffResolvedContext context) {

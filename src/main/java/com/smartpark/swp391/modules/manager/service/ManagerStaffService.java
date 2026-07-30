@@ -22,4 +22,6 @@ public interface ManagerStaffService {
   ManagerStaffResponse updateStatus(UUID id, ManagerStaffStatusRequest request);
 
   ManagerStaffResponse resetPassword(UUID id, ManagerStaffPasswordResetRequest request);
+
+  void deleteStaff(UUID id, UUID managerUserId);
 }

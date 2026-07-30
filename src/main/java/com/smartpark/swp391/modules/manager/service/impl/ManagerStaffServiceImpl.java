@@ -8,8 +8,12 @@ import com.smartpark.swp391.modules.identity.entity.Role;
 import com.smartpark.swp391.modules.identity.entity.Tenant;
 import com.smartpark.swp391.modules.identity.entity.User;
 import com.smartpark.swp391.modules.identity.entity.UserRole;
+import com.smartpark.swp391.modules.identity.enumType.DeviceStatus;
+import com.smartpark.swp391.modules.identity.enumType.StaffPasswordResetStatus;
 import com.smartpark.swp391.modules.identity.enumType.UserStatus;
+import com.smartpark.swp391.modules.identity.repository.DeviceRepository;
 import com.smartpark.swp391.modules.identity.repository.RoleRepository;
+import com.smartpark.swp391.modules.identity.repository.StaffPasswordResetRequestRepository;
 import com.smartpark.swp391.modules.identity.repository.TenantRepository;
 import com.smartpark.swp391.modules.identity.repository.UserRepository;
 import com.smartpark.swp391.modules.identity.repository.UserRoleRepository;
@@ -21,7 +25,11 @@ import com.smartpark.swp391.modules.manager.dto.staff.ManagerStaffStatusRequest;
 import com.smartpark.swp391.modules.manager.dto.staff.ManagerStaffUpdateRequest;
 import com.smartpark.swp391.modules.manager.service.ManagerStaffService;
 import com.smartpark.swp391.modules.manager.specification.ManagerStaffSpecifications;
+import com.smartpark.swp391.modules.operation.repository.KioskStaffRepository;
+import com.smartpark.swp391.modules.settlement.repository.StaffCashShiftRepository;
+import java.time.LocalDateTime;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -39,11 +47,19 @@ import org.springframework.transaction.annotation.Transactional;
 public class ManagerStaffServiceImpl implements ManagerStaffService {
 
   private static final String STAFF_ROLE = "STAFF";
+  private static final String MANAGER_ROLE = "PARKING_MANAGER";
+  private static final Set<String> PROTECTED_ROLES =
+      Set.of("PARKING_MANAGER", "SYSTEM_ADMIN", "DEV");
+  private static final String DELETED_RESET_REASON = "Staff account deleted by parking manager.";
 
   UserRepository userRepository;
   RoleRepository roleRepository;
   UserRoleRepository userRoleRepository;
   TenantRepository tenantRepository;
+  DeviceRepository deviceRepository;
+  KioskStaffRepository kioskStaffRepository;
+  StaffCashShiftRepository staffCashShiftRepository;
+  StaffPasswordResetRequestRepository passwordResetRequestRepository;
   PasswordEncoder passwordEncoder;
   SessionService sessionService;
 
@@ -136,6 +152,55 @@ public class ManagerStaffServiceImpl implements ManagerStaffService {
     return toResponse(userRepository.save(staff));
   }
 
+  @Override
+  @Transactional
+  public void deleteStaff(UUID id, UUID managerUserId) {
+    UUID tenantId = currentTenantId();
+    User visibleStaff = getStaffOrThrow(id);
+    assertDeletableStaff(visibleStaff);
+    User manager =
+        userRepository
+            .findTenantUserByIdAndRole(managerUserId, tenantId, MANAGER_ROLE)
+            .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Manager not found"));
+
+    var pendingReset =
+        passwordResetRequestRepository.findPendingForStaffForUpdate(tenantId, visibleStaff.getId());
+    User staff =
+        userRepository
+            .findTenantUserByIdAndRoleForUpdate(id, tenantId, STAFF_ROLE)
+            .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Staff not found"));
+    assertDeletableStaff(staff);
+    if (pendingReset.isEmpty()) {
+      pendingReset =
+          passwordResetRequestRepository.findPendingForStaffForUpdate(tenantId, staff.getId());
+    }
+
+    if (staffCashShiftRepository.findOpenForStaffForUpdate(tenantId, staff.getId()).isPresent()) {
+      throw new ApiException(
+          ErrorCode.DUPLICATE_RESOURCE,
+          "Staff account cannot be deleted while a cash shift is open. Close the shift first.");
+    }
+
+    LocalDateTime now = LocalDateTime.now();
+    pendingReset.ifPresent(
+        resetRequest -> {
+          resetRequest.setStatus(StaffPasswordResetStatus.REJECTED);
+          resetRequest.setReviewedAt(now);
+          resetRequest.setReviewedByManager(manager);
+          resetRequest.setCompletedAt(null);
+          resetRequest.setRejectionReason(DELETED_RESET_REASON);
+          passwordResetRequestRepository.save(resetRequest);
+        });
+
+    kioskStaffRepository.deactivateActiveAssignmentsForStaff(tenantId, staff.getId());
+    deviceRepository.suspendAndDetachByUserId(staff.getId(), DeviceStatus.SUSPENDED);
+    sessionService.revokeAll(staff.getId());
+
+    staff.setStatus(UserStatus.INACTIVE);
+    staff.setDeleted(true);
+    userRepository.save(staff);
+  }
+
   private User getStaffOrThrow(UUID id) {
     return userRepository
         .findTenantUserByIdAndRole(id, currentTenantId(), STAFF_ROLE)
@@ -145,6 +210,14 @@ public class ManagerStaffServiceImpl implements ManagerStaffService {
   private void revokeIfInactive(User staff) {
     if (staff.getStatus() != UserStatus.ACTIVE) {
       sessionService.revokeAll(staff.getId());
+    }
+  }
+
+  private void assertDeletableStaff(User staff) {
+    if (roleRepository.findRoleNamesByUserId(staff.getId()).stream()
+        .anyMatch(PROTECTED_ROLES::contains)) {
+      throw new ApiException(
+          ErrorCode.FORBIDDEN_ACTION, "Privileged accounts cannot be deleted as Staff");
     }
   }
 

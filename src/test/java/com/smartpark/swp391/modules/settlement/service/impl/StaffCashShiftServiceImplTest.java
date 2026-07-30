@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.smartpark.swp391.common.exception.ApiException;
 import com.smartpark.swp391.modules.identity.entity.Tenant;
 import com.smartpark.swp391.modules.identity.entity.User;
+import com.smartpark.swp391.modules.identity.repository.UserRepository;
 import com.smartpark.swp391.modules.operation.entity.Kiosk;
 import com.smartpark.swp391.modules.operation.enumType.KioskType;
 import com.smartpark.swp391.modules.parking.entity.Parking;
@@ -44,6 +45,7 @@ import org.springframework.data.domain.PageRequest;
 class StaffCashShiftServiceImplTest {
 
   @Mock StaffWorkContextService staffWorkContextService;
+  @Mock UserRepository userRepository;
   @Mock StaffCashShiftRepository staffCashShiftRepository;
   @Mock StaffCashTransactionRepository staffCashTransactionRepository;
   @Mock PaymentIntentRepository paymentIntentRepository;
@@ -59,6 +61,7 @@ class StaffCashShiftServiceImplTest {
   @Test
   void startCreatesOpenShift() {
     when(staffWorkContextService.requireCurrentResolvedContext()).thenReturn(data.context);
+    stubActiveStaffLock();
     when(staffCashShiftRepository.findFirstByTenantIdAndStaffIdAndStatusOrderByOpenedAtDesc(
             data.tenant.getId(), data.staff.getId(), StaffCashShiftStatus.OPEN))
         .thenReturn(Optional.empty());
@@ -83,6 +86,7 @@ class StaffCashShiftServiceImplTest {
   void startReturnsExistingOpenShift() {
     StaffCashShift openShift = openShift();
     when(staffWorkContextService.requireCurrentResolvedContext()).thenReturn(data.context);
+    stubActiveStaffLock();
     when(staffCashShiftRepository.findFirstByTenantIdAndStaffIdAndStatusOrderByOpenedAtDesc(
             data.tenant.getId(), data.staff.getId(), StaffCashShiftStatus.OPEN))
         .thenReturn(Optional.of(openShift));
@@ -180,6 +184,7 @@ class StaffCashShiftServiceImplTest {
   private StaffCashShiftServiceImpl service() {
     return new StaffCashShiftServiceImpl(
         staffWorkContextService,
+        userRepository,
         staffCashShiftRepository,
         staffCashTransactionRepository,
         paymentIntentRepository,
@@ -189,9 +194,14 @@ class StaffCashShiftServiceImplTest {
 
   private void stubReferences() {
     when(entityManager.getReference(Tenant.class, data.tenant.getId())).thenReturn(data.tenant);
-    when(entityManager.getReference(User.class, data.staff.getId())).thenReturn(data.staff);
     when(entityManager.getReference(Parking.class, data.parking.getId())).thenReturn(data.parking);
     when(entityManager.getReference(Kiosk.class, data.kiosk.getId())).thenReturn(data.kiosk);
+  }
+
+  private void stubActiveStaffLock() {
+    when(userRepository.findTenantUserByIdAndRoleForUpdate(
+            data.staff.getId(), data.tenant.getId(), "STAFF"))
+        .thenReturn(Optional.of(data.staff));
   }
 
   private StaffCashShift openShift() {

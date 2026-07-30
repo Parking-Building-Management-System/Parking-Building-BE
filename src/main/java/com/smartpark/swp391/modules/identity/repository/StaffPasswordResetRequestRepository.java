@@ -47,4 +47,17 @@ public interface StaffPasswordResetRequestRepository
       """)
   Optional<StaffPasswordResetRequest> findTenantRequestForUpdate(
       @Param("tenantId") UUID tenantId, @Param("id") UUID id);
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query(
+      """
+      SELECT request
+      FROM StaffPasswordResetRequest request
+      WHERE request.tenant.id = :tenantId
+        AND request.staffUser.id = :staffUserId
+        AND request.status =
+          com.smartpark.swp391.modules.identity.enumType.StaffPasswordResetStatus.PENDING
+      """)
+  Optional<StaffPasswordResetRequest> findPendingForStaffForUpdate(
+      @Param("tenantId") UUID tenantId, @Param("staffUserId") UUID staffUserId);
 }

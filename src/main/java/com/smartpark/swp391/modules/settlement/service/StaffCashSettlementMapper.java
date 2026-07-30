@@ -13,9 +13,9 @@ public class StaffCashSettlementMapper {
   public StaffCashShiftResponse toShiftResponse(StaffCashShift shift) {
     return StaffCashShiftResponse.builder()
         .id(shift.getId())
-        .staffId(shift.getStaff().getId())
-        .staffName(shift.getStaff().getFullName())
-        .staffUsername(shift.getStaff().getUsername())
+        .staffId(staffId(shift))
+        .staffName(staffName(shift))
+        .staffUsername(staffUsername(shift))
         .parkingId(shift.getParking().getId())
         .parkingName(shift.getParking().getName())
         .kioskId(shift.getKiosk().getId())
@@ -41,9 +41,9 @@ public class StaffCashSettlementMapper {
   public ManagerShiftSettlementListItemResponse toManagerListItem(StaffCashShift shift) {
     return ManagerShiftSettlementListItemResponse.builder()
         .id(shift.getId())
-        .staffId(shift.getStaff().getId())
-        .staffName(shift.getStaff().getFullName())
-        .staffUsername(shift.getStaff().getUsername())
+        .staffId(staffId(shift))
+        .staffName(staffName(shift))
+        .staffUsername(staffUsername(shift))
         .parkingId(shift.getParking().getId())
         .parkingName(shift.getParking().getName())
         .kioskId(shift.getKiosk().getId())
@@ -74,5 +74,23 @@ public class StaffCashSettlementMapper {
             transaction.getPenaltyCase() == null ? null : transaction.getPenaltyCase().getId())
         .note(transaction.getNote())
         .build();
+  }
+
+  private java.util.UUID staffId(StaffCashShift shift) {
+    return shift.getStaffId() != null
+        ? shift.getStaffId()
+        : shift.getStaff() == null ? null : shift.getStaff().getId();
+  }
+
+  private String staffName(StaffCashShift shift) {
+    return shift.getStaffNameSnapshot() != null
+        ? shift.getStaffNameSnapshot()
+        : shift.getStaff() == null ? null : shift.getStaff().getFullName();
+  }
+
+  private String staffUsername(StaffCashShift shift) {
+    return shift.getStaffUsernameSnapshot() != null
+        ? shift.getStaffUsernameSnapshot()
+        : shift.getStaff() == null ? null : shift.getStaff().getUsername();
   }
 }

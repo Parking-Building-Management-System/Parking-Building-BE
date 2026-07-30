@@ -5,6 +5,7 @@ import com.smartpark.swp391.common.exception.ErrorCode;
 import com.smartpark.swp391.infrastructure.tenant.TenantContext;
 import com.smartpark.swp391.modules.identity.entity.Tenant;
 import com.smartpark.swp391.modules.identity.entity.User;
+import com.smartpark.swp391.modules.identity.enumType.UserStatus;
 import com.smartpark.swp391.modules.identity.repository.TenantRepository;
 import com.smartpark.swp391.modules.identity.repository.UserRepository;
 import com.smartpark.swp391.modules.manager.dto.kiosk.ManagerKioskRequest;
@@ -138,6 +139,9 @@ public class ManagerKioskServiceImpl implements ManagerKioskService {
         userRepository
             .findTenantUserByIdAndRole(staffId, currentTenantId(), STAFF_ROLE)
             .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Staff not found"));
+    if (staff.getStatus() != UserStatus.ACTIVE) {
+      throw new ApiException(ErrorCode.FORBIDDEN_ACTION, "Only active Staff can be assigned");
+    }
 
     KioskStaff assignment =
         kioskStaffRepository

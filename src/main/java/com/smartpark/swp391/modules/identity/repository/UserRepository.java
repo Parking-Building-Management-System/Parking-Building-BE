@@ -35,4 +35,22 @@ public interface UserRepository extends JpaRepository<User, UUID>, JpaSpecificat
           """)
   Optional<User> findTenantUserByIdAndRole(
       @Param("id") UUID id, @Param("tenantId") UUID tenantId, @Param("roleName") String roleName);
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query(
+      """
+          SELECT u
+          FROM User u
+          WHERE u.id = :id
+            AND u.tenant.id = :tenantId
+            AND EXISTS (
+              SELECT 1
+              FROM UserRole ur
+              JOIN ur.role r
+              WHERE ur.user.id = u.id
+                AND r.name = :roleName
+            )
+          """)
+  Optional<User> findTenantUserByIdAndRoleForUpdate(
+      @Param("id") UUID id, @Param("tenantId") UUID tenantId, @Param("roleName") String roleName);
 }

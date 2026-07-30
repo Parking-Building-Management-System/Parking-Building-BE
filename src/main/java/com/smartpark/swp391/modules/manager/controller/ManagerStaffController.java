@@ -30,6 +30,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -132,6 +133,18 @@ public class ManagerStaffController {
     return ok(
         "/manager/staff/" + id + "/reset-password",
         managerTenantContext.call(jwt, () -> managerStaffService.resetPassword(id, request)));
+  }
+
+  @DeleteMapping("/{id}")
+  @Operation(
+      summary = "Delete staff account",
+      description =
+          "Logically deletes a STAFF account, revokes its sessions and removes active access"
+              + " without deleting historical operational records.")
+  public ResponseEntity<ApiResponse<Void>> deleteStaff(
+      @PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+    managerTenantContext.run(jwt, () -> managerStaffService.deleteStaff(id, extractUserId(jwt)));
+    return ok("/manager/staff/" + id, null);
   }
 
   private UUID extractUserId(Jwt jwt) {
