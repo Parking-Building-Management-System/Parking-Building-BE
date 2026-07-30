@@ -64,20 +64,34 @@ public interface RfidCardRepository extends JpaRepository<RfidCard, UUID> {
           FROM RfidCard c
           WHERE c.tenant.id = :tenantId
             AND c.status = :status
-            AND (:search IS NULL OR lower(c.code) LIKE lower(concat('%', cast(:search as string), '%')))
             AND NOT EXISTS (
               SELECT 1
               FROM ParkingSession ps
-              WHERE ps.tenant.id = :tenantId
-                AND ps.parking.id = :parkingId
-                AND ps.rfidCard.id = c.id
+              WHERE ps.rfidCard.id = c.id
                 AND ps.status = com.smartpark.swp391.modules.operation.enumType.ParkingSessionStatus.ACTIVE
             )
           ORDER BY c.code ASC
           """)
   List<RfidCard> findAvailableForStaffParking(
+      @Param("tenantId") UUID tenantId, @Param("status") RfidCardStatus status, Pageable pageable);
+
+  @Query(
+      """
+          SELECT c
+          FROM RfidCard c
+          WHERE c.tenant.id = :tenantId
+            AND c.status = :status
+            AND lower(c.code) LIKE lower(concat('%', :search, '%'))
+            AND NOT EXISTS (
+              SELECT 1
+              FROM ParkingSession ps
+              WHERE ps.rfidCard.id = c.id
+                AND ps.status = com.smartpark.swp391.modules.operation.enumType.ParkingSessionStatus.ACTIVE
+            )
+          ORDER BY c.code ASC
+          """)
+  List<RfidCard> searchAvailableForStaffParking(
       @Param("tenantId") UUID tenantId,
-      @Param("parkingId") UUID parkingId,
       @Param("status") RfidCardStatus status,
       @Param("search") String search,
       Pageable pageable);

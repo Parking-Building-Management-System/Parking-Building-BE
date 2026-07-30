@@ -7,7 +7,6 @@ import com.smartpark.swp391.modules.parking.entity.RfidCard;
 import com.smartpark.swp391.modules.parking.enumType.RfidCardStatus;
 import com.smartpark.swp391.modules.parking.repository.RfidCardRepository;
 import com.smartpark.swp391.modules.staff.dto.AvailableRfidCardResponse;
-import com.smartpark.swp391.modules.staff.dto.StaffWorkContextResponse;
 import com.smartpark.swp391.modules.staff.service.StaffRfidCardService;
 import com.smartpark.swp391.modules.staff.service.StaffWorkContextService;
 import java.util.List;
@@ -30,18 +29,17 @@ public class StaffRfidCardServiceImpl implements StaffRfidCardService {
   @Override
   @Transactional(readOnly = true)
   public List<AvailableRfidCardResponse> getAvailableCards(String search, Integer limit) {
-    StaffWorkContextResponse workContext = staffWorkContextService.requireCurrentContext();
+    staffWorkContextService.requireCurrentContext();
+    String normalizedSearch = trimToNull(search);
     int resolvedLimit = limit == null ? 50 : Math.max(1, Math.min(limit, 100));
-    return rfidCardRepository
-        .findAvailableForStaffParking(
-            currentTenantId(),
-            workContext.parkingId(),
-            RfidCardStatus.ACTIVE,
-            trimToNull(search),
-            PageRequest.of(0, resolvedLimit))
-        .stream()
-        .map(this::toResponse)
-        .toList();
+    UUID tenantId = currentTenantId();
+    PageRequest page = PageRequest.of(0, resolvedLimit);
+    List<RfidCard> cards =
+        normalizedSearch == null
+            ? rfidCardRepository.findAvailableForStaffParking(tenantId, RfidCardStatus.ACTIVE, page)
+            : rfidCardRepository.searchAvailableForStaffParking(
+                tenantId, RfidCardStatus.ACTIVE, normalizedSearch, page);
+    return cards.stream().map(this::toResponse).toList();
   }
 
   private AvailableRfidCardResponse toResponse(RfidCard card) {
