@@ -154,6 +154,11 @@ class PenaltyCaseRepositoryTest {
 
   @Test
   void pendingViolationCountIncludesOnlyReportedPwaOccupiedSlotCasesInCurrentScope() {
+    assertThat(
+            penaltyCaseRepository.countPendingViolationReports(
+                currentTenant.getId(), currentParking.getId()))
+        .isEqualTo(1);
+
     saveCase(
         currentTenant,
         currentParking,
@@ -174,13 +179,33 @@ class PenaltyCaseRepositoryTest {
         PenaltyType.OCCUPIED_ASSIGNED_SLOT,
         PenaltyCaseStatus.COLLECTED,
         true);
+    PenaltyCase secondPending =
+        saveCase(
+            currentTenant,
+            currentParking,
+            PenaltyType.OCCUPIED_ASSIGNED_SLOT,
+            PenaltyCaseStatus.REPORTED,
+            true);
     entityManager.flush();
     entityManager.clear();
 
     assertThat(
             penaltyCaseRepository.countPendingViolationReports(
                 currentTenant.getId(), currentParking.getId()))
-        .isEqualTo(1);
+        .isEqualTo(2);
+
+    PenaltyCase firstPending = penaltyCaseRepository.findById(reportedCase.getId()).orElseThrow();
+    firstPending.setStatus(PenaltyCaseStatus.APPLIED);
+    secondPending = penaltyCaseRepository.findById(secondPending.getId()).orElseThrow();
+    secondPending.setStatus(PenaltyCaseStatus.COLLECTED);
+    penaltyCaseRepository.saveAll(List.of(firstPending, secondPending));
+    entityManager.flush();
+    entityManager.clear();
+
+    assertThat(
+            penaltyCaseRepository.countPendingViolationReports(
+                currentTenant.getId(), currentParking.getId()))
+        .isZero();
   }
 
   private List<PenaltyCase> findReports(PenaltyCaseStatus status, String search) {
