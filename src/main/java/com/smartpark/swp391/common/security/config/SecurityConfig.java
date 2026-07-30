@@ -39,7 +39,7 @@ public class SecurityConfig {
   };
 
   private static final String[] PUBLIC_AUTH_ENDPOINTS = {
-    "/auth/login", "/auth/refresh", "/internal/healthz"
+    "/auth/login", "/auth/refresh", "/auth/password-reset-requests", "/internal/healthz"
   };
 
   private static final String[] PUBLIC_PWA_ENDPOINTS = {"/pwa/**"};

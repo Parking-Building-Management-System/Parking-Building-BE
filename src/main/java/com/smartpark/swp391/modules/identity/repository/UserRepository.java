@@ -1,10 +1,12 @@
 package com.smartpark.swp391.modules.identity.repository;
 
 import com.smartpark.swp391.modules.identity.entity.User;
+import jakarta.persistence.LockModeType;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -14,6 +16,10 @@ public interface UserRepository extends JpaRepository<User, UUID>, JpaSpecificat
   Optional<UUID> findTenantIdByUserId(@Param("userId") UUID userId);
 
   Optional<User> findByUsername(String username);
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("SELECT u FROM User u WHERE u.username = :username")
+  Optional<User> findByUsernameForUpdate(@Param("username") String username);
 
   boolean existsByUsername(String username);
 
