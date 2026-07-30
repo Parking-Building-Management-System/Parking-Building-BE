@@ -19,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -101,6 +102,53 @@ class RfidCardRepositoryTest {
             tenant.getId(), parking.getId(), RfidCardStatus.ACTIVE, null, PageRequest.of(0, 5));
 
     assertThat(cards).isNotEmpty();
+  }
+
+  @Test
+  void managerSearchIsCaseInsensitivePaginatedStatusFilteredAndTenantScoped() {
+    Tenant tenant = tenantRepository.findBySlug("bcons-plaza").orElseThrow();
+    Tenant otherTenant = tenantRepository.findBySlug("fpt-tower").orElseThrow();
+    RfidCard lostCard =
+        rfidCardRepository
+            .findByTenantIdAndCodeIgnoreCase(tenant.getId(), "BCONS-0001")
+            .orElseThrow();
+    lostCard.setStatus(RfidCardStatus.LOST);
+    rfidCardRepository.saveAndFlush(lostCard);
+    var firstPage =
+        rfidCardRepository.searchByTenantId(
+            tenant.getId(), "bcons-00", PageRequest.of(0, 2, Sort.by("code").ascending()));
+
+    assertThat(firstPage.getContent()).hasSize(2);
+    assertThat(firstPage.getTotalElements()).isGreaterThan(2);
+    assertThat(firstPage.getTotalPages()).isGreaterThan(1);
+    assertThat(firstPage.getContent())
+        .extracting(RfidCard::getCode)
+        .isSorted()
+        .allMatch(code -> code.toLowerCase().contains("bcons-00"));
+    assertThat(firstPage.getContent())
+        .allMatch(card -> card.getTenant().getId().equals(tenant.getId()));
+
+    var uidSearch =
+        rfidCardRepository.searchByTenantId(
+            tenant.getId(),
+            lostCard.getUid().toLowerCase(),
+            PageRequest.of(0, 10, Sort.by("code").ascending()));
+    assertThat(uidSearch.getContent())
+        .extracting(RfidCard::getId)
+        .containsExactly(lostCard.getId());
+
+    var combined =
+        rfidCardRepository.searchByTenantIdAndStatus(
+            tenant.getId(),
+            RfidCardStatus.LOST,
+            "bcons-000",
+            PageRequest.of(0, 10, Sort.by("code").ascending()));
+    assertThat(combined.getContent()).extracting(RfidCard::getId).containsExactly(lostCard.getId());
+
+    var otherTenantResults =
+        rfidCardRepository.searchByTenantId(
+            otherTenant.getId(), "bcons-0001", PageRequest.of(0, 10, Sort.by("code").ascending()));
+    assertThat(otherTenantResults).isEmpty();
   }
 
   private void createActiveSession(Tenant tenant, Parking parking, RfidCard card) {

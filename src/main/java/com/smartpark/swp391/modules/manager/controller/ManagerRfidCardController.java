@@ -53,19 +53,23 @@ public class ManagerRfidCardController {
   @GetMapping
   @Operation(
       summary = "List RFID cards",
-      description = "Lists current tenant RFID cards with optional status filter.",
+      description =
+          "Lists current tenant RFID cards with optional case-insensitive code/UID search and"
+              + " status filter.",
       responses =
           @io.swagger.v3.oas.annotations.responses.ApiResponse(
               responseCode = "200",
               content = @Content(schema = @Schema(implementation = PageResponse.class))))
   public ResponseEntity<ApiResponse<PageResponse<RfidCardResponse>>> getCards(
+      @RequestParam(required = false) String search,
       @RequestParam(required = false) RfidCardStatus status,
       @RequestParam(defaultValue = "0") @Min(0) int page,
       @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
       @AuthenticationPrincipal Jwt jwt) {
     return ok(
         "/manager/rfid-cards",
-        managerTenantContext.call(jwt, () -> managerRfidCardService.getCards(status, page, size)));
+        managerTenantContext.call(
+            jwt, () -> managerRfidCardService.getCards(search, status, page, size)));
   }
 
   @PostMapping("/generate")

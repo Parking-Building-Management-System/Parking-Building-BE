@@ -10,7 +10,7 @@ import java.util.UUID;
 
 public interface ManagerRfidCardService {
 
-  PageResponse<RfidCardResponse> getCards(RfidCardStatus status, int page, int size);
+  PageResponse<RfidCardResponse> getCards(String search, RfidCardStatus status, int page, int size);
 
   RfidCardGenerateResponse generateCards(RfidCardGenerateRequest request);
 

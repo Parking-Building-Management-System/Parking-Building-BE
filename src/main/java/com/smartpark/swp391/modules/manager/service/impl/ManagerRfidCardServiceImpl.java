@@ -43,13 +43,20 @@ public class ManagerRfidCardServiceImpl implements ManagerRfidCardService {
 
   @Override
   @Transactional(readOnly = true)
-  public PageResponse<RfidCardResponse> getCards(RfidCardStatus status, int page, int size) {
+  public PageResponse<RfidCardResponse> getCards(
+      String search, RfidCardStatus status, int page, int size) {
     var pageable = PageRequest.of(page, size, Sort.by("code").ascending());
     UUID tenantId = currentTenantId();
+    String normalizedSearch = normalizeSearch(search);
     var result =
-        status == null
-            ? rfidCardRepository.findAllByTenantId(tenantId, pageable)
-            : rfidCardRepository.findAllByTenantIdAndStatus(tenantId, status, pageable);
+        normalizedSearch == null
+            ? status == null
+                ? rfidCardRepository.findAllByTenantId(tenantId, pageable)
+                : rfidCardRepository.findAllByTenantIdAndStatus(tenantId, status, pageable)
+            : status == null
+                ? rfidCardRepository.searchByTenantId(tenantId, normalizedSearch, pageable)
+                : rfidCardRepository.searchByTenantIdAndStatus(
+                    tenantId, status, normalizedSearch, pageable);
 
     return new PageResponse<>(
         result.getContent().stream().map(this::toResponse).toList(),
@@ -57,6 +64,14 @@ public class ManagerRfidCardServiceImpl implements ManagerRfidCardService {
         result.getSize(),
         result.getTotalElements(),
         result.getTotalPages());
+  }
+
+  private String normalizeSearch(String search) {
+    if (search == null || search.isBlank()) {
+      return null;
+    }
+
+    return search.trim();
   }
 
   @Override

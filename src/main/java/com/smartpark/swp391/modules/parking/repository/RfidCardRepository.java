@@ -24,6 +24,36 @@ public interface RfidCardRepository extends JpaRepository<RfidCard, UUID> {
   Page<RfidCard> findAllByTenantIdAndStatus(
       UUID tenantId, RfidCardStatus status, Pageable pageable);
 
+  @Query(
+      """
+          SELECT c
+          FROM RfidCard c
+          WHERE c.tenant.id = :tenantId
+            AND (
+              lower(c.code) LIKE lower(concat('%', :search, '%'))
+              OR lower(c.uid) LIKE lower(concat('%', :search, '%'))
+            )
+          """)
+  Page<RfidCard> searchByTenantId(
+      @Param("tenantId") UUID tenantId, @Param("search") String search, Pageable pageable);
+
+  @Query(
+      """
+          SELECT c
+          FROM RfidCard c
+          WHERE c.tenant.id = :tenantId
+            AND c.status = :status
+            AND (
+              lower(c.code) LIKE lower(concat('%', :search, '%'))
+              OR lower(c.uid) LIKE lower(concat('%', :search, '%'))
+            )
+          """)
+  Page<RfidCard> searchByTenantIdAndStatus(
+      @Param("tenantId") UUID tenantId,
+      @Param("status") RfidCardStatus status,
+      @Param("search") String search,
+      Pageable pageable);
+
   long countByTenantIdAndCodeIgnoreCase(UUID tenantId, String code);
 
   boolean existsByQrToken(String qrToken);
